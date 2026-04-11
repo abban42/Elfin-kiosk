@@ -458,4 +458,122 @@ export default function FaceDetectionDemo() {
               <canvas ref={canvasRef}
                 style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", transform: "scaleX(-1)" }} />
 
-              {/* Greeting over
+              {/* Greeting overlay */}
+              {greeting && (
+                <div style={{
+                  position: "absolute", bottom: 16, left: 16, right: 16,
+                  padding: "12px 16px", borderRadius: 14,
+                  background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)",
+                  border: `1px solid ${personName ? COLORS.primary : COLORS.accent}`,
+                  animation: "fadeUp 0.4s ease",
+                }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: personName ? COLORS.primary : COLORS.accent }}>
+                    {greeting}
+                  </div>
+                </div>
+              )}
+
+              {/* Registration overlay */}
+              {registering !== null && (
+                <div style={{
+                  position: "absolute", top: 16, left: 16, right: 16,
+                  padding: "10px 14px", borderRadius: 12,
+                  background: "rgba(255,199,44,0.9)", color: COLORS.bg,
+                  textAlign: "center", fontWeight: 700, fontSize: 14,
+                }}>
+                  {employees[registering]?.name} — Kameraya bakın ({registerCount}/3)
+                  <div style={{ fontSize: 11, fontWeight: 400, marginTop: 2 }}>Farklı açılardan bakın</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Simulation buttons */}
+        {simMode && (
+          <div style={{
+            background: COLORS.card, borderRadius: 16, padding: 14, marginBottom: 12,
+            border: `1px solid ${COLORS.primary}44`,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.primary, marginBottom: 8 }}>Simülasyon Modu</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              <button onClick={() => simulateFace("customer")} style={{
+                padding: "8px 14px", borderRadius: 10, border: `1px solid ${COLORS.accent}`,
+                background: "transparent", color: COLORS.accent, fontSize: 12, cursor: "pointer",
+              }}>Müşteri Geldi</button>
+              {employees.map((emp, i) => (
+                <button key={i} onClick={() => simulateFace(emp.name.split(" ")[0])} style={{
+                  padding: "8px 14px", borderRadius: 10, border: `1px solid ${COLORS.green}`,
+                  background: "transparent", color: COLORS.green, fontSize: 12, cursor: "pointer",
+                }}>{emp.name.split(" ")[0]}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Status */}
+        <StatusPanel
+          faceDetected={faceDetected}
+          proximity={proximity}
+          personName={personName}
+          cameraActive={cameraActive}
+          modelLoaded={modelLoaded}
+        />
+
+        {/* Employees */}
+        <EmployeeManager
+          employees={employees}
+          onAdd={(name) => setEmployees(prev => [...prev, { name, registered: false, samples: 0, descriptors: [] }])}
+          onRemove={(i) => setEmployees(prev => prev.filter((_, idx) => idx !== i))}
+        />
+
+        {/* Registration buttons */}
+        {cameraActive && modelLoaded && (
+          <div style={{
+            background: COLORS.card, borderRadius: 16, padding: 14, marginBottom: 12,
+            border: `1px solid ${COLORS.border}`,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: COLORS.orange }}>Yüz Kaydı</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {employees.map((emp, i) => (
+                <button key={i} onClick={() => startRegistration(i)}
+                  disabled={registering !== null}
+                  style={{
+                    padding: "8px 14px", borderRadius: 10,
+                    border: `1px solid ${emp.registered ? COLORS.green : COLORS.orange}`,
+                    background: emp.registered ? `${COLORS.green}15` : "transparent",
+                    color: emp.registered ? COLORS.green : COLORS.orange,
+                    fontSize: 12, cursor: registering !== null ? "default" : "pointer",
+                    opacity: registering !== null ? 0.5 : 1,
+                  }}>
+                  {emp.registered ? `✓ ${emp.name.split(" ")[0]}` : `📷 ${emp.name.split(" ")[0]} Kaydet`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Event Log */}
+        <EventLog events={events} />
+
+        {/* Info */}
+        <div style={{
+          marginTop: 12, padding: 12, background: COLORS.card, borderRadius: 12,
+          border: `1px solid ${COLORS.border}`, fontSize: 11, color: COLORS.textDim, lineHeight: 1.6,
+        }}>
+          <b style={{ color: COLORS.textMid }}>Nasıl çalışır:</b><br />
+          1. Kamerayı başlatın<br />
+          2. Çalışanları kameraya bakarak kaydedin (3 örnek)<br />
+          3. Yüz algılandığında yakınlık ölçülür<br />
+          4. Yakın mesafede otomatik karşılama yapılır<br />
+          5. Kayıtlı çalışanlar ismiyle selamlanır<br /><br />
+          <b style={{ color: COLORS.textMid }}>Yakınlık eşikleri:</b> Uzak (&lt;8%) → Yaklaşıyor (8-15%) → Yakın (15-25%) → Çok Yakın (&gt;25%)
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+      `}</style>
+    </div>
+  );
+}
