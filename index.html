@@ -139,34 +139,35 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',-apple-system,s
 <script>
 // ═══ DATA ═══
 const PRODUCTS=[
-  {id:"t1",type:"tarife",name:"YAPBOZ 8GB",price:"449 TL/ay",desc:"8GB internet, 1000dk, 1000SMS",features:["8GB Internet","1000 Dakika","1000 SMS","Fizy","TV+"]},
-  {id:"t2",type:"tarife",name:"YAPBOZ 20GB",price:"649 TL/ay",desc:"20GB internet, sinirsiz dakika ve SMS",features:["20GB Internet","Sinirsiz Dk","Sinirsiz SMS","Fizy","TV+"]},
-  {id:"t3",type:"tarife",name:"YAPBOZ 50GB",price:"949 TL/ay",desc:"50GB internet, sinirsiz her sey",features:["50GB Internet","Sinirsiz Dk","Sinirsiz SMS","Platinum"]},
-  {id:"t4",type:"tarife",name:"BenimPaketim 4GB",price:"279 TL/ay",desc:"4GB internet, 500dk",features:["4GB Internet","500 Dakika","500 SMS"]},
+  {id:"t1",type:"tarife",name:"YAPBOZ 8GB",price:"449 TL/ay",desc:"8GB internet, 1000 dakika, 1000 SMS",features:["8GB İnternet","1000 Dakika","1000 SMS","Fizy","TV+"]},
+  {id:"t2",type:"tarife",name:"YAPBOZ 20GB",price:"649 TL/ay",desc:"20GB internet, sınırsız dakika ve SMS",features:["20GB İnternet","Sınırsız Dk","Sınırsız SMS","Fizy","TV+"]},
+  {id:"t3",type:"tarife",name:"YAPBOZ 50GB",price:"949 TL/ay",desc:"50GB internet, sınırsız her şey",features:["50GB İnternet","Sınırsız Dk","Sınırsız SMS","Platinum"]},
+  {id:"t4",type:"tarife",name:"BenimPaketim 4GB",price:"279 TL/ay",desc:"4GB internet, 500 dakika",features:["4GB İnternet","500 Dakika","500 SMS"]},
   {id:"c1",type:"cihaz",name:"iPhone 15",price:"64.999 TL",desc:"A16 Bionic, 48MP kamera, 128GB",features:["6.1\" OLED","48MP Kamera","A16 Bionic","128GB"]},
   {id:"c2",type:"cihaz",name:"Samsung S24",price:"54.999 TL",desc:"Galaxy AI, 50MP kamera, 256GB",features:["6.2\" AMOLED","50MP Kamera","Galaxy AI","256GB"]},
   {id:"c3",type:"cihaz",name:"Xiaomi 14",price:"29.999 TL",desc:"Leica kamera, Snapdragon 8 Gen 3",features:["6.36\" AMOLED","Leica 50MP","SD 8 Gen3","256GB"]},
-  {id:"c4",type:"cihaz",name:"Samsung A55",price:"21.999 TL",desc:"Super AMOLED, 5000mAh",features:["6.6\" AMOLED","50MP Kamera","5000mAh","128GB"]},
-  {id:"i1",type:"internet",name:"Fiber 50Mbps",price:"449 TL/ay",desc:"50 Mbps, limitsiz",features:["50 Mbps","Limitsiz","Ucretsiz Modem"]},
-  {id:"i2",type:"internet",name:"Fiber 100Mbps",price:"549 TL/ay",desc:"100 Mbps, limitsiz",features:["100 Mbps","Limitsiz","TV+ Hediye"]},
+  {id:"c4",type:"cihaz",name:"Samsung A55",price:"21.999 TL",desc:"Super AMOLED, 5000mAh batarya",features:["6.6\" AMOLED","50MP Kamera","5000mAh","128GB"]},
+  {id:"i1",type:"internet",name:"Fiber 50Mbps",price:"449 TL/ay",desc:"50 Mbps, limitsiz kullanım",features:["50 Mbps","Limitsiz","Ücretsiz Modem"]},
+  {id:"i2",type:"internet",name:"Fiber 100Mbps",price:"549 TL/ay",desc:"100 Mbps, limitsiz kullanım",features:["100 Mbps","Limitsiz","TV+ Hediye"]},
 ];
 
-const SYS=`Sen "Elfin" adinda Konya Elfin Iletisim magazasinin (Turkcell Yetkili Bayi) AI asistanisin.
+const SYS=`Sen "Elfin" adında Konya Elfin İletişim mağazasının (Turkcell Yetkili Bayi) yapay zekâ asistanısın.
 
-URUNLER:
+ÜRÜNLER:
 ${JSON.stringify(PRODUCTS)}
 
 HER CEVABIN SADECE JSON OLSUN:
-{"message":"cevabin buraya","product_id":null}
-Urun onerirsen product_id ekle:
-{"message":"Sagimda gordugunuz bu tarife tam size gore!","product_id":"t2"}
+{"message":"cevabın buraya","product_id":null}
+Ürün önerirsen product_id ekle:
+{"message":"Sağımda gördüğünüz bu tarife tam size göre!","product_id":"t2"}
 
 KURALLAR:
-- 2-3 cumle kisa oz
-- Sicak samimi Turkce
-- Urun onerirken sagimda/solumda gordugunuz de
+- 2-3 cümle kısa öz
+- Sıcak samimi Türkçe
+- Türkçe karakterleri doğru kullan (ş, ç, ğ, ü, ö, ı, İ)
+- Ürün önerirken sağımda/solumda gördüğünüz de
 - Emoji KULLANMA
-- SADECE JSON formatinda cevap ver baska hicbir sey yazma`;
+- SADECE JSON formatında cevap ver başka hiçbir şey yazma`;
 
 // ═══ STATE ═══
 const S={
@@ -293,33 +294,49 @@ function scroll(){setTimeout(()=>{document.getElementById('ce')?.scrollIntoView(
 
 // ═══ API ═══
 async function callAPI(msgs){
-  if(!S.apiKey){S.showSettings=true;render();throw new Error('API key gerekli')}
-  const res=await fetch("https://api.anthropic.com/v1/messages",{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "x-api-key":S.apiKey,
-      "anthropic-version":"2023-06-01",
-      "anthropic-dangerous-direct-browser-access":"true"
-    },
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,system:SYS,
-      messages:msgs.map(m=>({role:m.role,content:m.content}))})
-  });
+  if(!S.apiKey){
+    S.showSettings=true;render();
+    toast("Claude API key gerekli. Ayarlardan girin.");
+    throw new Error('API key gerekli');
+  }
+  let res;
+  try{
+    res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "x-api-key":S.apiKey,
+        "anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"
+      },
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,system:SYS,
+        messages:msgs.map(m=>({role:m.role,content:m.content}))})
+    });
+  }catch(e){
+    toast("İnternet bağlantı hatası");
+    throw e;
+  }
   if(!res.ok){
     const err=await res.json().catch(()=>({}));
-    if(res.status===401){toast("API key gecersiz. Ayarlardan kontrol edin.");S.showSettings=true;render();throw new Error('Invalid key')}
-    throw new Error(err.error?.message||'API hatasi');
+    const errMsg=err.error?.message||'Bilinmeyen hata';
+    if(res.status===401){
+      toast("Claude API key geçersiz! Ayarlardan kontrol edin.");
+      S.showSettings=true;render();
+      throw new Error('Invalid key');
+    }
+    toast("API hatası: "+errMsg);
+    throw new Error(errMsg);
   }
   const data=await res.json();
   const raw=data.content?.map(c=>c.text||"").join("")||'';
   try{const m=raw.match(/\{[\s\S]*?\}/);if(m){const p=JSON.parse(m[0]);return{msg:p.message||"",pid:p.product_id||null}}}catch(e){}
-  return{msg:raw.replace(/[{}"]/g,"").replace(/message:|product_id:\s*null/gi,"").trim()||"Bir sorun olustu.",pid:null};
+  return{msg:raw.replace(/[{}"]/g,"").replace(/message:|product_id:\s*null/gi,"").trim()||"Bir sorun oluştu.",pid:null};
 }
 
 // ═══ ACTIONS ═══
 async function handleStart(){
-  if(!S.apiKey){S.showSettings=true;render();toast("Lutfen once API key giriniz");return}
-  const g="Hos geldiniz! Ben Elfin, dijital magaza asistaniyim. Size nasil yardimci olabilirim?";
+  if(!S.apiKey){S.showSettings=true;render();toast("Lütfen önce Claude API key giriniz");return}
+  const g="Hoş geldiniz! Ben Elfin, dijital mağaza asistanınızım. Size nasıl yardımcı olabilirim?";
   S.mode="greeting";S.msgs=[{role:"assistant",content:g}];S.product=null;S.pointDir=null;render();
   await speak(g);
   S.mode="listening";render();resetInact();
@@ -338,8 +355,9 @@ async function sendMsg(text){
     if(!pid)S.pointDir=null;
     S.mode="listening";render();
   }catch(e){
+    console.error('sendMsg error:',e);
     if(!S.msgs[S.msgs.length-1]||S.msgs[S.msgs.length-1].role!=="assistant")
-      S.msgs.push({role:"assistant",content:"Baglanti hatasi, lutfen tekrar deneyin."});
+      S.msgs.push({role:"assistant",content:"Bağlantı hatası oluştu. Lütfen tekrar deneyin."});
     S.loading=false;S.mode="listening";render();scroll();
   }
 }
@@ -409,14 +427,14 @@ function rAvatar(){const el=document.getElementById('avc');if(el)el.innerHTML=av
 // ═══ PRODUCT CARD ═══
 function pcHTML(p,side){
   if(!p)return'';
-  const tc={tarife:"#ffc72c",cihaz:"#00c8ff",internet:"#22c55e"},tl={tarife:"TARIFE",cihaz:"CIHAZ",internet:"INTERNET"};
+  const tc={tarife:"#ffc72c",cihaz:"#00c8ff",internet:"#22c55e"},tl={tarife:"TARİFE",cihaz:"CİHAZ",internet:"İNTERNET"};
   const c=tc[p.type];
   return`<div class="pc-w ${side}"><div class="pc"style="border:1px solid ${c}44;box-shadow:0 8px 24px ${c}22">
 <div class="pc-h"><span class="pc-t"style="color:${c}">${tl[p.type]}</span><button class="pc-x"onclick="clProd()">✕</button></div>
 <div class="pc-n">${p.name}</div><div class="pc-p"style="color:${c}">${p.price}</div>
 <div class="pc-d">${p.desc}</div>
 <div class="pc-fs">${p.features.map(f=>`<span class="pc-f"style="background:${c}15;color:${c};border:1px solid ${c}30">${f}</span>`).join('')}</div>
-<button class="pc-btn"style="background:linear-gradient(135deg,${c},${c}cc);color:${p.type==="tarife"?"#060a14":"#fff"}"onclick="shDet('${p.id}')">Detayli Bilgi</button>
+<button class="pc-btn"style="background:linear-gradient(135deg,${c},${c}cc);color:${p.type==="tarife"?"#060a14":"#fff"}"onclick="shDet('${p.id}')">Detaylı Bilgi</button>
 <div class="pc-hint">Sohbete devam edebilirsiniz</div></div></div>`}
 
 // ═══ RENDER ═══
@@ -455,10 +473,10 @@ ${hasKey&&!hasEL?`<button class="btn-s"style="padding:8px 16px;font-size:11px;ma
     S.msgs.forEach(m=>{h+=`<div class="bw ${m.role==='user'?'u':'a'}"><div class="bb ${m.role==='user'?'u':'a'}">${m.content}</div></div>`});
     if(S.loading)h+=`<div class="td"><span></span><span></span><span></span></div>`;
     if(S.msgs.length===1&&!S.loading)h+=`<div class="chips">
-<button class="chip"onclick="sendMsg('Bana uygun tarife onerir misin?')">Tarifeler</button>
+<button class="chip"onclick="sendMsg('Bana uygun tarife önerir misin?')">Tarifeler</button>
 <button class="chip"onclick="sendMsg('Telefon almak istiyorum')">Telefonlar</button>
-<button class="chip"onclick="sendMsg('Ev interneti paketleri?')">Ev Interneti</button>
-<button class="chip"onclick="sendMsg('Numara tasimak istiyorum')">Numara Tasima</button></div>`;
+<button class="chip"onclick="sendMsg('Ev interneti paketleri neler?')">Ev İnterneti</button>
+<button class="chip"onclick="sendMsg('Numara taşımak istiyorum')">Numara Taşıma</button></div>`;
     h+=`<div id="ce"></div></div>`;
   }
   h+=`</div>`;
@@ -583,7 +601,7 @@ async function testVoice(){
   const voiceId=document.getElementById('voice-sel')?.value||'pFZP5JQG7iQjIQuC4Bku';
   const ttsMode=document.getElementById('tts-mode')?.value||S.ttsMode;
   
-  if(ttsMode==='elevenlabs'&&!elKey){toast("Lutfen ElevenLabs API key girin");return}
+  if(ttsMode==='elevenlabs'&&!elKey){toast("Lütfen ElevenLabs API key girin");return}
   
   toast("Ses test ediliyor...");
   
@@ -595,16 +613,16 @@ async function testVoice(){
       await speakElevenLabs("Merhaba! Ben Elfin, dijital mağaza asistanınızım. Size nasıl yardımcı olabilirim?");
       stopMouth();
       S.elKey=oldKey;S.elVoiceId=oldVoice;
-      toast("Ses testi basarili!");
+      toast("Ses testi başarılı!");
     }catch(e){
       stopMouth();
-      toast("ElevenLabs hatasi: "+e.message);
+      toast("ElevenLabs hatası: "+e.message);
     }
   }else{
     startMouth();
     await speakBrowser("Merhaba! Ben Elfin, dijital mağaza asistanınızım.");
     stopMouth();
-    toast("Tarayici sesi ile test edildi");
+    toast("Tarayıcı sesi ile test edildi");
   }
 }
 
@@ -621,9 +639,9 @@ window.shDet=function(id){
 <div style="font-size:22px;font-weight:800;margin-bottom:4px">${p.name}</div>
 <div style="font-size:26px;font-weight:800;color:${c};margin-bottom:14px">${p.price}</div>
 <div style="font-size:13px;color:var(--txM);line-height:1.6;margin-bottom:16px">${p.desc}</div>
-<div style="font-size:12px;font-weight:600;margin-bottom:8px">Ozellikler</div>
+<div style="font-size:12px;font-weight:600;margin-bottom:8px">Özellikler</div>
 <div class="mf">${p.features.map(f=>`<div class="mfi"><div class="mfi-d"style="background:${c}"></div>${f}</div>`).join('')}</div>
-<button class="mc-btn"style="background:linear-gradient(135deg,${c},${c}bb);color:${p.type==="tarife"?"var(--bg)":"#fff"}"onclick="clDet()">Personel Cagir</button>
+<button class="mc-btn"style="background:linear-gradient(135deg,${c},${c}bb);color:${p.type==="tarife"?"var(--bg)":"#fff"}"onclick="clDet()">Personel Çağır</button>
 </div></div>`};
 window.clDet=function(){S.detailProd=null;document.getElementById('modal-root').innerHTML=''};
 window.clProd=function(){S.product=null;S.pointDir=null;render()};
