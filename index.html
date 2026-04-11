@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,maximum-scale=1">
-<title>Elfin AI Asistan v4</title>
+<title>Elfin AI Asistan v5</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -135,6 +135,9 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',-apple-system,s
 <div id="app"></div>
 <div id="modal-root"></div>
 <div id="toast-root"></div>
+<video id="cam" autoplay playsinline muted style="position:fixed;bottom:8px;right:8px;width:120px;height:90px;border-radius:10px;border:2px solid var(--bd);object-fit:cover;transform:scaleX(-1);z-index:50;display:none;opacity:0.85"></video>
+<canvas id="cam-canvas" style="position:fixed;bottom:8px;right:8px;width:120px;height:90px;border-radius:10px;z-index:51;display:none;pointer-events:none;transform:scaleX(-1)"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
 
 <script>
 // ═══ DATA ═══
@@ -181,6 +184,81 @@ const S={
   showSettings:false,toast:null
 };
 let inactT,mouthT,rec;
+
+// ═══ FACE DETECTION ═══
+let faceReady=false, camActive=false, lastGreet=0, faceLoop=null;
+
+async function initFaceDetection(){
+  if(!window.faceapi){toast("Yüz algılama kütüphanesi yüklenemedi");return}
+  try{
+    toast("AI modelleri yükleniyor...");
+    const U="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model";
+    await faceapi.nets.tinyFaceDetector.loadFromUri(U);
+    await faceapi.nets.faceLandmark68Net.loadFromUri(U);
+    await faceapi.nets.faceRecognitionNet.loadFromUri(U);
+    faceReady=true;
+    toast("Yüz algılama hazır!");
+    startCamera();
+  }catch(e){toast("Model yükleme hatası: "+e.message);console.error(e)}
+}
+
+async function startCamera(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:320},height:{ideal:240}}});
+    const vid=document.getElementById('cam');
+    if(vid){vid.srcObject=stream;await vid.play();vid.style.display='block';
+      document.getElementById('cam-canvas').style.display='block';
+      camActive=true;render();startFaceLoop();}
+  }catch(e){toast("Kamera hatası: "+e.message);console.error(e)}
+}
+
+function startFaceLoop(){
+  if(faceLoop)return;
+  const vid=document.getElementById('cam');
+  const cvs=document.getElementById('cam-canvas');
+  if(!vid||!cvs)return;
+
+  async function detect(){
+    if(!camActive||!faceReady||S.mode!=="idle"){faceLoop=setTimeout(detect,1000);return}
+    try{
+      const dets=await faceapi.detectAllFaces(vid,new faceapi.TinyFaceDetectorOptions({scoreThreshold:0.5}));
+      const dims=faceapi.matchDimensions(cvs,vid,true);
+      const resized=faceapi.resizeResults(dets,dims);
+      const ctx=cvs.getContext('2d');
+      ctx.clearRect(0,0,cvs.width,cvs.height);
+      // Draw green boxes
+      resized.forEach(d=>{
+        const b=d.box;
+        ctx.strokeStyle='#22c55e';ctx.lineWidth=2;ctx.strokeRect(b.x,b.y,b.width,b.height);
+      });
+
+      if(dets.length>0){
+        const box=dets[0].box;
+        const vW=vid.videoWidth||320;
+        const facePct=(box.width/vW)*100;
+        // Face > 12% = close enough to greet
+        const now=Date.now();
+        if(facePct>12 && now-lastGreet>15000 && S.mode==="idle" && S.apiKey){
+          lastGreet=now;
+          // Pulse camera border green
+          document.getElementById('cam').style.borderColor='#22c55e';
+          setTimeout(()=>{const c=document.getElementById('cam');if(c)c.style.borderColor='var(--bd)'},2000);
+          handleStart();
+        }
+      }
+    }catch(e){}
+    faceLoop=setTimeout(detect,500);
+  }
+  detect();
+}
+
+function stopCamera(){
+  camActive=false;
+  const vid=document.getElementById('cam');
+  if(vid&&vid.srcObject){vid.srcObject.getTracks().forEach(t=>t.stop());vid.srcObject=null;vid.style.display='none';}
+  document.getElementById('cam-canvas').style.display='none';
+  if(faceLoop){clearTimeout(faceLoop);faceLoop=null;}
+}
 
 // ═══ TÜRKÇE TELAFFUZ DÜZELTMESİ ═══
 function turkishPronounce(text){
@@ -393,7 +471,7 @@ setInterval(()=>{
 },2200);
 
 // ═══ HELPERS ═══
-function resetInact(){if(inactT)clearTimeout(inactT);inactT=setTimeout(()=>{speechSynthesis?.cancel();S.mode="idle";S.msgs=[];S.product=null;S.pointDir=null;render()},120000)}
+function resetInact(){if(inactT)clearTimeout(inactT);inactT=setTimeout(()=>{speechSynthesis?.cancel();S.mode="idle";S.msgs=[];S.product=null;S.pointDir=null;render();if(camActive&&faceReady)startFaceLoop()},120000)}
 function toast(msg){S.toast=msg;render();setTimeout(()=>{S.toast=null;render()},3500)}
 function scroll(){setTimeout(()=>{document.getElementById('ce')?.scrollIntoView({behavior:'smooth'})},60)}
 
@@ -467,7 +545,10 @@ async function sendMsg(text){
   }
 }
 
-function handleReset(){speechSynthesis?.cancel();stopMouth();S.mode="idle";S.msgs=[];S.input="";S.product=null;S.pointDir=null;S.loading=false;render()}
+function handleReset(){speechSynthesis?.cancel();stopMouth();S.mode="idle";S.msgs=[];S.input="";S.product=null;S.pointDir=null;S.loading=false;render();
+  // Re-enable face detection after reset
+  if(camActive&&faceReady)startFaceLoop();
+}
 
 // ═══ AVATAR SVG ═══
 function avSVG(sc){
@@ -550,7 +631,7 @@ function render(){
   let h='';
 
   // Header
-  h+=`<div class="header"><div class="hdr-l"><div class="logo">E</div><div><div style="font-size:14px;font-weight:700">Elfin Iletisim</div><div style="font-size:10px;color:var(--txD)">AI Asistan v4</div></div></div>
+  h+=`<div class="header"><div class="hdr-l"><div class="logo">E</div><div><div style="font-size:14px;font-weight:700">Elfin Iletisim</div><div style="font-size:10px;color:var(--txD)">AI Asistan v5</div></div></div>
 <div class="hdr-r"><div class="st-badge"><div class="st-dot"style="background:${stC};box-shadow:${S.mode!=="idle"?`0 0 8px var(--gn)`:"none"}"></div>${stL[S.mode]}</div>
 <button class="btn-s"onclick="S.showSettings=true;render()">⚙</button>
 ${ic?'<button class="btn-s"onclick="handleReset()">Sifirla</button>':''}</div></div>`;
@@ -566,11 +647,14 @@ ${ic?'<button class="btn-s"onclick="handleReset()">Sifirla</button>':''}</div></
   if(!ic){
     const hasKey=!!S.apiKey;
     const hasEL=!!S.elKey;
-    h+=`<div class="idle-s"><div class="idle-t">Merhaba, ben <b>Elfin</b></div><div class="idle-sub">Size nasil yardimci olabilirim?</div>
-${!hasKey?`<button class="btn-s"style="padding:10px 24px;font-size:13px;margin-bottom:12px"onclick="S.showSettings=true;render()">Once API Key Ayarlayin</button><br>`:''}
-${hasKey&&!hasEL?`<button class="btn-s"style="padding:8px 16px;font-size:11px;margin-bottom:10px;border-color:var(--pr);color:var(--pr)"onclick="S.showSettings=true;render()">Dogal ses icin ElevenLabs ekleyin</button><br>`:''}
-<button class="btn-go"onclick="handleStart()"${!hasKey?'style="opacity:.5"':''}>Musteri Algilandi — Baslat</button>
-<div style="font-size:10px;color:var(--txD);margin-top:8px;opacity:.5">${hasEL?'ElevenLabs dogal ses aktif':'Tarayici sesi kullaniliyor'}</div></div>`;
+    h+=`<div class="idle-s"><div class="idle-t">Merhaba, ben <b>Elfin</b></div><div class="idle-sub">Size nasıl yardımcı olabilirim?</div>
+${!hasKey?`<button class="btn-s"style="padding:10px 24px;font-size:13px;margin-bottom:12px"onclick="S.showSettings=true;render()">Önce API Key Ayarlayın</button><br>`:''}
+${hasKey&&!hasEL?`<button class="btn-s"style="padding:8px 16px;font-size:11px;margin-bottom:10px;border-color:var(--pr);color:var(--pr)"onclick="S.showSettings=true;render()">Doğal ses için ElevenLabs ekleyin</button><br>`:''}
+<button class="btn-go"onclick="handleStart()"${!hasKey?'style="opacity:.5"':''}>Manuel Başlat</button>
+<div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+<button id="btn-cam" style="padding:8px 16px;border-radius:10px;border:1px solid ${camActive?'var(--gn)':'var(--bd)'};background:${camActive?'var(--gn)15':'var(--cd)'};color:${camActive?'var(--gn)':'var(--txM)'};font-size:11px;cursor:pointer">${camActive?'📷 Kamera Aktif':'📷 Kamerayı Aç'}</button>
+</div>
+<div style="font-size:10px;color:var(--txD);margin-top:8px">${camActive?'Müşteri yaklaşınca otomatik karşılama yapılacak':faceReady?'Kamerayı açın → otomatik algılama başlasın':'AI modelleri yükleniyor...'}</div></div>`;
   }
 
   if(ic){
@@ -761,11 +845,26 @@ window.clDet=function(){S.detailProd=null;document.getElementById('modal-root').
 window.clProd=function(){S.product=null;S.pointDir=null;render()};
 window.handleStart=handleStart;window.handleReset=handleReset;window.sendMsg=sendMsg;window.S=S;
 window.saveAllSettings=saveAllSettings;window.testVoice=testVoice;
+window.initFaceDetection=initFaceDetection;window.startCamera=startCamera;window.stopCamera=stopCamera;
 
 // INIT
 render();
 // Show settings if no API key
 if(!S.apiKey){setTimeout(()=>{S.showSettings=true;render()},500)}
+// Auto-load face detection models
+setTimeout(()=>{if(window.faceapi)initFaceDetection()},1000);
+
+// Bind camera button (re-bind after each render)
+const origRender=render;
+render=function(){
+  origRender();
+  const cb=document.getElementById('btn-cam');
+  if(cb&&!cb._b){cb._b=true;cb.addEventListener('click',function(){
+    if(camActive){stopCamera();render();}
+    else if(faceReady){startCamera();}
+    else{initFaceDetection();}
+  });}
+}
 </script>
 </body>
 </html>
