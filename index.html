@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,maximum-scale=1">
-<title>Elfin AI Asistan v8</title>
+<title>Elfin AI Asistan v9</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -141,24 +141,105 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',-apple-system,s
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
 
 <script>
-// ═══ DATA ═══
-const PRODUCTS=[
-  {id:"t1",type:"tarife",name:"YAPBOZ 8GB",price:"449 TL/ay",desc:"8GB internet, 1000 dakika, 1000 SMS",features:["8GB İnternet","1000 Dakika","1000 SMS","Fizy","TV+"]},
-  {id:"t2",type:"tarife",name:"YAPBOZ 20GB",price:"649 TL/ay",desc:"20GB internet, sınırsız dakika ve SMS",features:["20GB İnternet","Sınırsız Dk","Sınırsız SMS","Fizy","TV+"]},
-  {id:"t3",type:"tarife",name:"YAPBOZ 50GB",price:"949 TL/ay",desc:"50GB internet, sınırsız her şey",features:["50GB İnternet","Sınırsız Dk","Sınırsız SMS","Platinum"]},
-  {id:"t4",type:"tarife",name:"BenimPaketim 4GB",price:"279 TL/ay",desc:"4GB internet, 500 dakika",features:["4GB İnternet","500 Dakika","500 SMS"]},
-  {id:"c1",type:"cihaz",name:"iPhone 15",price:"64.999 TL",desc:"A16 Bionic, 48MP kamera, 128GB",features:["6.1\" OLED","48MP Kamera","A16 Bionic","128GB"]},
-  {id:"c2",type:"cihaz",name:"Samsung S24",price:"54.999 TL",desc:"Galaxy AI, 50MP kamera, 256GB",features:["6.2\" AMOLED","50MP Kamera","Galaxy AI","256GB"]},
-  {id:"c3",type:"cihaz",name:"Xiaomi 14",price:"29.999 TL",desc:"Leica kamera, Snapdragon 8 Gen 3",features:["6.36\" AMOLED","Leica 50MP","SD 8 Gen3","256GB"]},
-  {id:"c4",type:"cihaz",name:"Samsung A55",price:"21.999 TL",desc:"Super AMOLED, 5000mAh batarya",features:["6.6\" AMOLED","50MP Kamera","5000mAh","128GB"]},
-  {id:"i1",type:"internet",name:"Fiber 50Mbps",price:"449 TL/ay",desc:"50 Mbps, limitsiz kullanım",features:["50 Mbps","Limitsiz","Ücretsiz Modem"]},
-  {id:"i2",type:"internet",name:"Fiber 100Mbps",price:"549 TL/ay",desc:"100 Mbps, limitsiz kullanım",features:["100 Mbps","Limitsiz","TV+ Hediye"]},
-];
+// ═══ DATA — WEBSITE'DEN CANLI VERİ ═══
+const DATA_URL='https://www.elfiniletisim.com';
+let PRODUCTS=[];
+let dataLoaded=false;
+let tarifeler=[], cihazlar=[];
 
-const SYS=`Sen "Elfin" adında Konya Elfin İletişim mağazasının (Turkcell Yetkili Bayi) yapay zekâ asistanısın.
+async function loadWebsiteData(){
+  try{
+    // Tarifeleri yükle
+    const tRes=await fetch(DATA_URL+'/tariffs_custom.json');
+    if(tRes.ok){
+      const tData=await tRes.json();
+      // tariffs_custom.json: array of category objects with tarifeler arrays
+      if(Array.isArray(tData)){
+        let tId=0;
+        tData.forEach(cat=>{
+          if(cat.tarifeler&&Array.isArray(cat.tarifeler)){
+            cat.tarifeler.forEach(t=>{
+              tId++;
+              tarifeler.push({
+                id:'t'+tId,
+                type:'tarife',
+                name:t.ad||'',
+                price:(t.fiyat||0)+' TL/ay',
+                desc:t.icerik||'',
+                features:[
+                  t.gb?t.gb+' İnternet':null,
+                  t.dk?(t.dk>=3000?'Sınırsız Dakika':t.dk+' Dakika'):null,
+                  t.sms?(t.sms>=3000?'Sınırsız SMS':t.sms+' SMS'):null,
+                ].filter(Boolean),
+                category:cat.ad||'',
+                raw:t
+              });
+            });
+          }
+        });
+      }
+      toast('Tarifeler yüklendi: '+tarifeler.length+' tarife');
+    }
+  }catch(e){console.log('Tarife yükleme hatası:',e)}
 
-ÜRÜNLER:
-${JSON.stringify(PRODUCTS)}
+  try{
+    // Cihazları yükle
+    const dRes=await fetch(DATA_URL+'/devices.json');
+    if(dRes.ok){
+      const dData=await dRes.json();
+      // devices.json: {telefon:[{id,m,n,p,...}]}
+      const phones=dData.telefon||dData.devices||[];
+      if(Array.isArray(phones)){
+        phones.forEach((d,i)=>{
+          if(i<80){// İlk 80 cihaz (Claude context limiti)
+            cihazlar.push({
+              id:'c'+(i+1),
+              type:'cihaz',
+              name:(d.m||'')+' '+(d.n||''),
+              price:d.p?d.p.toLocaleString('tr-TR')+' TL':'Fiyat sorunuz',
+              desc:(d.n||'')+' - '+(d.m||''),
+              features:[d.n||''].filter(Boolean),
+              raw:d
+            });
+          }
+        });
+      }
+      toast('Cihazlar yüklendi: '+cihazlar.length+' cihaz');
+    }
+  }catch(e){console.log('Cihaz yükleme hatası:',e)}
+
+  PRODUCTS=[...tarifeler,...cihazlar];
+  dataLoaded=true;
+
+  if(PRODUCTS.length===0){
+    toast('Veri yüklenemedi, varsayılan veriler kullanılıyor');
+    PRODUCTS=[
+      {id:"t1",type:"tarife",name:"YAPBOZ 8GB",price:"449 TL/ay",desc:"8GB internet",features:["8GB İnternet","1000 Dakika"]},
+      {id:"c1",type:"cihaz",name:"iPhone 15",price:"64.999 TL",desc:"A16 Bionic",features:["48MP Kamera"]},
+    ];
+  }
+  render();
+}
+
+function buildSystemPrompt(){
+  // Tarife özeti (en popüler 30 tarife)
+  const tOzet=tarifeler.slice(0,30).map(t=>t.name+': '+t.price+' ('+t.desc+')').join('\n');
+  // Cihaz özeti (en popüler 30 cihaz)  
+  const cOzet=cihazlar.slice(0,30).map(c=>c.name+': '+c.price).join('\n');
+  
+  // Kısa ürün listesi (product_id eşleştirmesi için)
+  const pList=PRODUCTS.slice(0,60).map(p=>p.id+':'+p.name+' ('+p.price+')').join(', ');
+
+  return`Sen Konya Elfin İletişim mağazasının (Turkcell Yetkili Bayi) yapay zekâ asistanısın.
+
+TARİFELER:
+${tOzet||'Tarife bilgisi yüklenmedi'}
+
+CİHAZLAR:
+${cOzet||'Cihaz bilgisi yüklenmedi'}
+
+ÜRÜN ID LİSTESİ (product_id için kullan):
+${pList}
 
 HER CEVABIN SADECE JSON OLSUN:
 {"message":"cevabın buraya","product_id":null}
@@ -170,8 +251,11 @@ KURALLAR:
 - Sıcak samimi Türkçe
 - Türkçe karakterleri doğru kullan (ş, ç, ğ, ü, ö, ı, İ)
 - Ürün önerirken sağımda/solumda gördüğünüz de
+- Müşterinin ihtiyacına göre en uygun ürünü öner
+- Fiyat bilgisini ver
 - Emoji KULLANMA
 - SADECE JSON formatında cevap ver başka hiçbir şey yazma`;
+}
 
 // ═══ STATE ═══
 const S={
@@ -582,7 +666,7 @@ async function callAPI(msgs){
         "anthropic-version":"2023-06-01",
         "anthropic-dangerous-direct-browser-access":"true"
       },
-      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,system:SYS,
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,system:buildSystemPrompt(),
         messages:msgs.map(m=>({role:m.role,content:m.content}))})
     });
   }catch(e){
@@ -826,7 +910,7 @@ function render(){
   let h='';
 
   // Header
-  h+=`<div class="header"><div class="hdr-l"><div class="logo">E</div><div><div style="font-size:14px;font-weight:700">Elfin Iletisim</div><div style="font-size:10px;color:var(--txD)">AI Asistan v8</div></div></div>
+  h+=`<div class="header"><div class="hdr-l"><div class="logo">E</div><div><div style="font-size:14px;font-weight:700">Elfin Iletisim</div><div style="font-size:10px;color:var(--txD)">AI Asistan v9</div></div></div>
 <div class="hdr-r"><div class="st-badge"><div class="st-dot"style="background:${stC};box-shadow:${S.mode!=="idle"?`0 0 8px var(--gn)`:"none"}"></div>${stL[S.mode]}</div>
 <button class="btn-s"onclick="S.showSettings=true;render()">⚙</button>
 ${ic?'<button class="btn-s"onclick="handleReset()">Sifirla</button>':''}</div></div>`;
@@ -842,7 +926,7 @@ ${ic?'<button class="btn-s"onclick="handleReset()">Sifirla</button>':''}</div></
   if(!ic){
     const hasKey=!!S.apiKey;
     const hasEL=!!S.elKey;
-    h+=`<div class="idle-s"><div class="idle-t">Merhaba, ben <b>Elfin</b></div><div class="idle-sub">Size nasıl yardımcı olabilirim?</div>
+    h+=`<div class="idle-s"><div class="idle-t">Merhaba, ben <b>Elfin</b></div><div class="idle-sub">${dataLoaded?tarifeler.length+' tarife, '+cihazlar.length+' cihaz yüklendi':'Veriler yükleniyor...'}</div>
 ${!hasKey?`<button class="btn-s"style="padding:10px 24px;font-size:13px;margin-bottom:12px"onclick="S.showSettings=true;render()">Önce API Key Ayarlayın</button><br>`:''}
 ${hasKey&&!hasEL?`<button class="btn-s"style="padding:8px 16px;font-size:11px;margin-bottom:10px;border-color:var(--pr);color:var(--pr)"onclick="S.showSettings=true;render()">Doğal ses için ElevenLabs ekleyin</button><br>`:''}
 <button class="btn-go"onclick="handleStart()"${!hasKey?'style="opacity:.5"':''}>Manuel Başlat</button>
@@ -1162,6 +1246,8 @@ window.people=people;window.savePeople=savePeople;
 
 // INIT
 render();
+// Load website data
+loadWebsiteData();
 // Show settings if no API key
 if(!S.apiKey){setTimeout(()=>{S.showSettings=true;render()},500)}
 // Auto-load face detection models
