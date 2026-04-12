@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,maximum-scale=1">
-<title>Elfin AI Asistan v7</title>
+<title>Elfin AI Asistan v8</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -135,8 +135,8 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',-apple-system,s
 <div id="app"></div>
 <div id="modal-root"></div>
 <div id="toast-root"></div>
-<video id="cam" autoplay playsinline muted style="position:fixed;bottom:8px;right:8px;width:120px;height:90px;border-radius:10px;border:2px solid var(--bd);object-fit:cover;transform:scaleX(-1);z-index:50;display:none;opacity:0.85"></video>
-<canvas id="cam-canvas" style="position:fixed;bottom:8px;right:8px;width:120px;height:90px;border-radius:10px;z-index:51;display:none;pointer-events:none;transform:scaleX(-1)"></canvas>
+<video id="cam" autoplay playsinline muted style="position:fixed;bottom:8px;right:8px;width:140px;height:105px;border-radius:12px;border:2px solid var(--bd);object-fit:cover;transform:scaleX(-1);z-index:50;display:none;opacity:0.9"></video>
+<canvas id="cam-canvas" style="position:fixed;bottom:8px;right:8px;width:140px;height:105px;border-radius:12px;z-index:51;display:none;pointer-events:none;transform:scaleX(-1)"></canvas>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
 
 <script>
@@ -189,8 +189,15 @@ const S={
 };
 let inactT,mouthT,rec;
 
-// ═══ FACE DETECTION ═══
+// ═══ FACE DETECTION & RECOGNITION ═══
 let faceReady=false, camActive=false, lastGreet=0, faceLoop=null;
+let registering=null, regCount=0;
+let people=JSON.parse(localStorage.getItem('elfin_people')||'[]');
+// Each person: {name, role, descriptors:[[...128 floats],...]}
+
+function savePeople(){
+  localStorage.setItem('elfin_people',JSON.stringify(people));
+}
 
 async function initFaceDetection(){
   if(!window.faceapi){toast("Yüz algılama kütüphanesi yüklenemedi");return}
@@ -201,7 +208,7 @@ async function initFaceDetection(){
     await faceapi.nets.faceLandmark68Net.loadFromUri(U);
     await faceapi.nets.faceRecognitionNet.loadFromUri(U);
     faceReady=true;
-    toast("Yüz algılama hazır!");
+    toast("Yüz tanıma hazır! ("+people.length+" kişi kayıtlı)");
     startCamera();
   }catch(e){toast("Model yükleme hatası: "+e.message);console.error(e)}
 }
@@ -223,41 +230,111 @@ function startFaceLoop(){
   if(!vid||!cvs)return;
 
   async function detect(){
-    if(!camActive||!faceReady||S.mode!=="idle"){faceLoop=setTimeout(detect,1000);return}
+    if(!camActive||!faceReady){faceLoop=setTimeout(detect,1000);return}
+    // Only detect in idle or registering mode
+    if(S.mode!=="idle"&&registering===null){faceLoop=setTimeout(detect,1000);return}
     try{
-      const dets=await faceapi.detectAllFaces(vid,new faceapi.TinyFaceDetectorOptions({scoreThreshold:0.5}));
+      const dets=await faceapi.detectAllFaces(vid,new faceapi.TinyFaceDetectorOptions({scoreThreshold:0.5}))
+        .withFaceLandmarks().withFaceDescriptors();
       const dims=faceapi.matchDimensions(cvs,vid,true);
       const resized=faceapi.resizeResults(dets,dims);
       const ctx=cvs.getContext('2d');
       ctx.clearRect(0,0,cvs.width,cvs.height);
-      // Draw green boxes
-      resized.forEach(d=>{
-        const b=d.box;
-        ctx.strokeStyle='#22c55e';ctx.lineWidth=2;ctx.strokeRect(b.x,b.y,b.width,b.height);
-      });
 
       if(dets.length>0){
-        const box=dets[0].box;
+        const det=dets[0];
+        const box=det.detection.box;
         const vW=vid.videoWidth||320;
         const facePct=(box.width/vW)*100;
-        // Face > 12% = close enough to greet
-        const now=Date.now();
-        if(facePct>12 && now-lastGreet>15000 && S.mode==="idle" && S.apiKey){
-          lastGreet=now;
-          // Pulse camera border green
-          document.getElementById('cam').style.borderColor='#22c55e';
-          setTimeout(()=>{const c=document.getElementById('cam');if(c)c.style.borderColor='var(--bd)'},2000);
-          handleStart();
+
+        // Draw box
+        const rb=resized[0]?.detection?.box;
+        if(rb){
+          ctx.strokeStyle=registering!==null?'#ffc72c':'#22c55e';
+          ctx.lineWidth=2;ctx.strokeRect(rb.x,rb.y,rb.width,rb.height);
+        }
+
+        // REGISTRATION MODE
+        if(registering!==null){
+          const p=people[registering];
+          if(p&&regCount<3&&facePct>10){
+            p.descriptors.push(Array.from(det.descriptor));
+            regCount++;
+            savePeople();
+            toast(p.name+": yüz örneği "+regCount+"/3 kaydedildi");
+            if(regCount>=3){
+              toast(p.name+" yüz kaydı tamamlandı!");
+              registering=null;regCount=0;render();
+            }
+            // Wait between captures
+            faceLoop=setTimeout(detect,1500);return;
+          }
+          faceLoop=setTimeout(detect,500);return;
+        }
+
+        // RECOGNITION MODE (only in idle)
+        if(S.mode==="idle"&&facePct>12){
+          const now=Date.now();
+          if(now-lastGreet>15000&&S.apiKey){
+            lastGreet=now;
+            // Try to match face
+            let matchedName=null;
+            const labeled=[];
+            people.forEach(p=>{
+              if(p.descriptors.length>=3){
+                labeled.push(new faceapi.LabeledFaceDescriptors(p.name,
+                  p.descriptors.map(d=>new Float32Array(d))));
+              }
+            });
+            if(labeled.length>0){
+              const matcher=new faceapi.FaceMatcher(labeled,0.5);
+              const match=matcher.findBestMatch(det.descriptor);
+              if(match.label!=="unknown")matchedName=match.label;
+            }
+
+            // Camera pulse
+            document.getElementById('cam').style.borderColor=matchedName?'#ffc72c':'#22c55e';
+            setTimeout(()=>{const c=document.getElementById('cam');if(c)c.style.borderColor='var(--bd)'},2000);
+
+            if(matchedName){
+              const p=people.find(x=>x.name===matchedName);
+              const role=p?.role||'';
+              handleStartPerson(matchedName,role);
+            }else{
+              handleStart();
+            }
+          }
         }
       }
-    }catch(e){}
-    faceLoop=setTimeout(detect,500);
+    }catch(e){console.log('face err:',e)}
+    faceLoop=setTimeout(detect,600);
   }
   detect();
 }
 
+// Greeting for known person
+async function handleStartPerson(name,role){
+  if(!S.apiKey)return;
+  const isEmp=role&&(role.includes('Çalışan')||role.includes('Personel')||role.includes('Yönetici'));
+  const g=isEmp
+    ? "Merhaba "+name+"! Bugün nasılsın?"
+    : "Hoş geldiniz "+name+"! Sizi tekrar görmek ne güzel. Size nasıl yardımcı olabilirim?";
+  S.mode="greeting";S.msgs=[{role:"assistant",content:g}];S.product=null;S.pointDir=null;render();
+  await speak(g);
+  S.mode="listening";render();resetInact();
+}
+
+function startRegistration(idx){
+  if(!camActive){toast("Önce kamerayı başlatın");return}
+  if(!faceReady){toast("Model henüz yüklenmedi");return}
+  registering=idx;regCount=0;
+  people[idx].descriptors=[];savePeople();
+  toast(people[idx].name+" için kameraya bakın — 3 farklı açıdan");
+  render();
+}
+
 function stopCamera(){
-  camActive=false;
+  camActive=false;registering=null;regCount=0;
   const vid=document.getElementById('cam');
   if(vid&&vid.srcObject){vid.srcObject.getTracks().forEach(t=>t.stop());vid.srcObject=null;vid.style.display='none';}
   document.getElementById('cam-canvas').style.display='none';
@@ -745,7 +822,7 @@ function render(){
   let h='';
 
   // Header
-  h+=`<div class="header"><div class="hdr-l"><div class="logo">E</div><div><div style="font-size:14px;font-weight:700">Elfin Iletisim</div><div style="font-size:10px;color:var(--txD)">AI Asistan v7</div></div></div>
+  h+=`<div class="header"><div class="hdr-l"><div class="logo">E</div><div><div style="font-size:14px;font-weight:700">Elfin Iletisim</div><div style="font-size:10px;color:var(--txD)">AI Asistan v8</div></div></div>
 <div class="hdr-r"><div class="st-badge"><div class="st-dot"style="background:${stC};box-shadow:${S.mode!=="idle"?`0 0 8px var(--gn)`:"none"}"></div>${stL[S.mode]}</div>
 <button class="btn-s"onclick="S.showSettings=true;render()">⚙</button>
 ${ic?'<button class="btn-s"onclick="handleReset()">Sifirla</button>':''}</div></div>`;
@@ -768,7 +845,42 @@ ${hasKey&&!hasEL?`<button class="btn-s"style="padding:8px 16px;font-size:11px;ma
 <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
 <button id="btn-cam" style="padding:8px 16px;border-radius:10px;border:1px solid ${camActive?'var(--gn)':'var(--bd)'};background:${camActive?'var(--gn)15':'var(--cd)'};color:${camActive?'var(--gn)':'var(--txM)'};font-size:11px;cursor:pointer">${camActive?'📷 Kamera Aktif':'📷 Kamerayı Aç'}</button>
 </div>
-<div style="font-size:10px;color:var(--txD);margin-top:8px">${camActive?'Müşteri yaklaşınca otomatik karşılama yapılacak':faceReady?'Kamerayı açın → otomatik algılama başlasın':'AI modelleri yükleniyor...'}</div></div>`;
+<div style="font-size:10px;color:var(--txD);margin-top:8px">${camActive?'Yüz algılandığında otomatik karşılama yapılacak':faceReady?'Kamerayı açın → otomatik algılama başlasın':'AI modelleri yükleniyor...'}</div>
+</div>`;
+
+    // People management panel
+    h+=`<div style="padding:0 16px;margin-top:10px">
+<div style="background:var(--cd);border-radius:14px;padding:12px;border:1px solid var(--bd)">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+<span style="font-size:13px;font-weight:700;color:var(--gn)">Kayıtlı Kişiler (${people.length})</span>
+<button id="btn-add-person"style="padding:5px 10px;border-radius:8px;border:1px solid var(--gn);background:transparent;color:var(--gn);font-size:11px;cursor:pointer">+ Kişi Ekle</button>
+</div>`;
+
+    if(people.length===0){
+      h+=`<div style="font-size:12px;color:var(--txD);text-align:center;padding:8px">Henüz kimse kayıtlı değil. "Kişi Ekle" ile başlayın.</div>`;
+    }else{
+      people.forEach((p,i)=>{
+        const hasFace=p.descriptors&&p.descriptors.length>=3;
+        h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--bg);border-radius:8px;margin-bottom:4px;border:1px solid var(--bd)">
+<div style="display:flex;align-items:center;gap:8px">
+<div style="width:28px;height:28px;border-radius:50%;background:${hasFace?'var(--gn)':'var(--bd)'};display:flex;align-items:center;justify-content:center;font-size:12px;color:${hasFace?'white':'var(--txD)'}">${hasFace?'✓':'?'}</div>
+<div><div style="font-size:13px;font-weight:600">${p.name}</div>
+<div style="font-size:10px;color:${hasFace?'var(--gn)':'var(--orange)'}">${hasFace?'Yüz kaydedildi ('+p.descriptors.length+' örnek)':'Yüz kaydı gerekli'}</div></div>
+</div>
+<div style="display:flex;gap:4px">
+<button data-reg="${i}"class="reg-btn"style="padding:4px 8px;border-radius:6px;border:1px solid ${hasFace?'var(--gn)':'var(--orange)'};background:transparent;color:${hasFace?'var(--gn)':'var(--orange)'};font-size:10px;cursor:pointer">${hasFace?'Yenile':'📷 Kaydet'}</button>
+<button data-del="${i}"class="del-btn"style="padding:4px 6px;border-radius:6px;border:none;background:transparent;color:var(--rd);font-size:14px;cursor:pointer">✕</button>
+</div></div>`;
+      });
+    }
+
+    if(registering!==null){
+      h+=`<div style="margin-top:8px;padding:10px;background:var(--pr);border-radius:10px;color:var(--bg);text-align:center">
+<div style="font-weight:700;font-size:13px">${people[registering]?.name} — Kameraya bakın</div>
+<div style="font-size:11px;margin-top:2px">${regCount}/3 örnek alındı — farklı açılardan bakın</div></div>`;
+    }
+
+    h+=`</div></div>`;
   }
 
   if(ic){
@@ -1015,6 +1127,8 @@ window.clProd=function(){S.product=null;S.pointDir=null;render()};
 window.handleStart=handleStart;window.handleReset=handleReset;window.sendMsg=sendMsg;window.S=S;
 window.saveAllSettings=saveAllSettings;window.testVoice=testVoice;
 window.initFaceDetection=initFaceDetection;window.startCamera=startCamera;window.stopCamera=stopCamera;
+window.startRegistration=startRegistration;window.handleStartPerson=handleStartPerson;
+window.people=people;window.savePeople=savePeople;
 
 // INIT
 render();
@@ -1033,6 +1147,25 @@ render=function(){
     else if(faceReady){startCamera();}
     else{initFaceDetection();}
   });}
+  // Person management
+  const addBtn=document.getElementById('btn-add-person');
+  if(addBtn&&!addBtn._b){addBtn._b=true;addBtn.addEventListener('click',function(){
+    const name=prompt('Kişi adı:');
+    if(name&&name.trim()){
+      const role=prompt('Rolü (Yönetici / Çalışan / Müşteri):','');
+      people.push({name:name.trim(),role:role||'',descriptors:[]});
+      savePeople();render();
+    }
+  });}
+  document.querySelectorAll('.reg-btn').forEach(b=>{
+    if(!b._b){b._b=true;b.addEventListener('click',function(){startRegistration(parseInt(this.dataset.reg))})}
+  });
+  document.querySelectorAll('.del-btn').forEach(b=>{
+    if(!b._b){b._b=true;b.addEventListener('click',function(){
+      const idx=parseInt(this.dataset.del);
+      if(confirm(people[idx]?.name+' silinsin mi?')){people.splice(idx,1);savePeople();render();}
+    })}
+  });
 }
 </script>
 </body>
