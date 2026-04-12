@@ -90,10 +90,11 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',-apple-system,s
 
 /* Settings Panel */
 .settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);
-  display:flex;align-items:center;justify-content:center;z-index:300;padding:16px}
-.settings-card{background:var(--sf);border-radius:20px;padding:20px;width:100%;max-width:380px;
-  border:1px solid var(--bd)}
-.settings-title{font-size:16px;font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+  display:flex;align-items:center;justify-content:center;z-index:300;padding:12px}
+.settings-card{background:var(--sf);border-radius:20px;padding:16px;width:100%;max-width:380px;
+  border:1px solid var(--bd);max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.settings-title{font-size:16px;font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;
+  position:sticky;top:-16px;background:var(--sf);padding:16px 0 8px;z-index:5;margin-top:-16px}
 .settings-label{font-size:12px;color:var(--txM);margin-bottom:4px;display:block}
 .settings-input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--bd);
   background:var(--cd);color:var(--tx);font-size:13px;outline:none;margin-bottom:12px;font-family:monospace}
@@ -192,6 +193,7 @@ let inactT,mouthT,rec;
 // ═══ FACE DETECTION & RECOGNITION ═══
 let faceReady=false, camActive=false, lastGreet=0, faceLoop=null;
 let registering=null, regCount=0;
+let camStartTime=0; // Prevent immediate greeting after camera start
 let people=JSON.parse(localStorage.getItem('elfin_people')||'[]');
 // Each person: {name, role, descriptors:[[...128 floats],...]}
 
@@ -219,7 +221,7 @@ async function startCamera(){
     const vid=document.getElementById('cam');
     if(vid){vid.srcObject=stream;await vid.play();vid.style.display='block';
       document.getElementById('cam-canvas').style.display='block';
-      camActive=true;render();startFaceLoop();}
+      camActive=true;camStartTime=Date.now();render();startFaceLoop();}
   }catch(e){toast("Kamera hatası: "+e.message);console.error(e)}
 }
 
@@ -272,9 +274,11 @@ function startFaceLoop(){
           faceLoop=setTimeout(detect,500);return;
         }
 
-        // RECOGNITION MODE (only in idle)
+        // RECOGNITION MODE (only in idle, after 8 sec delay from camera start)
         if(S.mode==="idle"&&facePct>12){
           const now=Date.now();
+          // Wait 8 seconds after camera starts before auto-greeting
+          if(now-camStartTime<8000){faceLoop=setTimeout(detect,600);return}
           if(now-lastGreet>15000&&S.apiKey){
             lastGreet=now;
             // Try to match face
@@ -938,7 +942,7 @@ function renderSettings(){
   
   let h=`<div class="settings-overlay" id="settings-overlay">
 <div class="settings-card" id="settings-card">
-<div class="settings-title">Ayarlar<button id="btn-close-settings" style="background:none;border:none;color:var(--txD);font-size:18px;cursor:pointer">✕</button></div>
+<div class="settings-title">Ayarlar<button id="btn-close-settings" style="background:var(--cd);border:1px solid var(--bd);color:var(--txM);font-size:14px;cursor:pointer;padding:6px 14px;border-radius:8px;font-weight:600">Kapat ✕</button></div>
 
 <div style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--bd)">
 <div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--ac)">Avatar Seçimi</div>
@@ -1024,6 +1028,7 @@ Stil %10 altı → profesyonel, nötr ses<br>
 Ayarladıktan sonra "Sesi Test Et" ile deneyin<br><br>
 Tüm ayarlar sadece bu cihazda saklanır.
 </div>
+<button id="btn-close-bottom" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--cd);color:var(--txM);font-size:13px;font-weight:600;cursor:pointer;margin-top:12px">Kapat</button>
 </div></div>`;
   
   let el=document.getElementById('settings-root');
@@ -1035,6 +1040,7 @@ Tüm ayarlar sadece bu cihazda saklanır.
     if(e.target.id==='settings-overlay'){S.showSettings=false;render();}
   });
   document.getElementById('btn-close-settings').addEventListener('click',function(){S.showSettings=false;render()});
+  document.getElementById('btn-close-bottom').addEventListener('click',function(){S.showSettings=false;render()});
   document.getElementById('btn-save-settings').addEventListener('click',function(){saveAllSettings()});
   document.getElementById('btn-test-voice').addEventListener('click',function(){testVoice()});
   document.getElementById('btn-tts-el').addEventListener('click',function(){S.ttsMode='elevenlabs';renderSettings()});
