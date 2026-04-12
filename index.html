@@ -849,42 +849,8 @@ ${hasKey&&!hasEL?`<button class="btn-s"style="padding:8px 16px;font-size:11px;ma
 <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
 <button id="btn-cam" style="padding:8px 16px;border-radius:10px;border:1px solid ${camActive?'var(--gn)':'var(--bd)'};background:${camActive?'var(--gn)15':'var(--cd)'};color:${camActive?'var(--gn)':'var(--txM)'};font-size:11px;cursor:pointer">${camActive?'📷 Kamera Aktif':'📷 Kamerayı Aç'}</button>
 </div>
-<div style="font-size:10px;color:var(--txD);margin-top:8px">${camActive?'Yüz algılandığında otomatik karşılama yapılacak':faceReady?'Kamerayı açın → otomatik algılama başlasın':'AI modelleri yükleniyor...'}</div>
+<div style="font-size:10px;color:var(--txD);margin-top:8px">${camActive?(people.length>0?people.length+' kişi kayıtlı — otomatik tanıma aktif':'Otomatik karşılama aktif'):faceReady?'Kamerayı açın → otomatik algılama başlasın':'AI modelleri yükleniyor...'}</div>
 </div>`;
-
-    // People management panel
-    h+=`<div style="padding:0 16px;margin-top:10px">
-<div style="background:var(--cd);border-radius:14px;padding:12px;border:1px solid var(--bd)">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-<span style="font-size:13px;font-weight:700;color:var(--gn)">Kayıtlı Kişiler (${people.length})</span>
-<button id="btn-add-person"style="padding:5px 10px;border-radius:8px;border:1px solid var(--gn);background:transparent;color:var(--gn);font-size:11px;cursor:pointer">+ Kişi Ekle</button>
-</div>`;
-
-    if(people.length===0){
-      h+=`<div style="font-size:12px;color:var(--txD);text-align:center;padding:8px">Henüz kimse kayıtlı değil. "Kişi Ekle" ile başlayın.</div>`;
-    }else{
-      people.forEach((p,i)=>{
-        const hasFace=p.descriptors&&p.descriptors.length>=3;
-        h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--bg);border-radius:8px;margin-bottom:4px;border:1px solid var(--bd)">
-<div style="display:flex;align-items:center;gap:8px">
-<div style="width:28px;height:28px;border-radius:50%;background:${hasFace?'var(--gn)':'var(--bd)'};display:flex;align-items:center;justify-content:center;font-size:12px;color:${hasFace?'white':'var(--txD)'}">${hasFace?'✓':'?'}</div>
-<div><div style="font-size:13px;font-weight:600">${p.name}</div>
-<div style="font-size:10px;color:${hasFace?'var(--gn)':'var(--orange)'}">${hasFace?'Yüz kaydedildi ('+p.descriptors.length+' örnek)':'Yüz kaydı gerekli'}</div></div>
-</div>
-<div style="display:flex;gap:4px">
-<button data-reg="${i}"class="reg-btn"style="padding:4px 8px;border-radius:6px;border:1px solid ${hasFace?'var(--gn)':'var(--orange)'};background:transparent;color:${hasFace?'var(--gn)':'var(--orange)'};font-size:10px;cursor:pointer">${hasFace?'Yenile':'📷 Kaydet'}</button>
-<button data-del="${i}"class="del-btn"style="padding:4px 6px;border-radius:6px;border:none;background:transparent;color:var(--rd);font-size:14px;cursor:pointer">✕</button>
-</div></div>`;
-      });
-    }
-
-    if(registering!==null){
-      h+=`<div style="margin-top:8px;padding:10px;background:var(--pr);border-radius:10px;color:var(--bg);text-align:center">
-<div style="font-weight:700;font-size:13px">${people[registering]?.name} — Kameraya bakın</div>
-<div style="font-size:11px;margin-top:2px">${regCount}/3 örnek alındı — farklı açılardan bakın</div></div>`;
-    }
-
-    h+=`</div></div>`;
   }
 
   if(ic){
@@ -1028,6 +994,42 @@ Stil %10 altı → profesyonel, nötr ses<br>
 Ayarladıktan sonra "Sesi Test Et" ile deneyin<br><br>
 Tüm ayarlar sadece bu cihazda saklanır.
 </div>
+
+<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--bd)">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+<div style="font-size:14px;font-weight:700;color:var(--gn)">Yüz Tanıma (${people.length} kişi)</div>
+<button id="btn-add-person"style="padding:6px 12px;border-radius:8px;border:1px solid var(--gn);background:transparent;color:var(--gn);font-size:11px;font-weight:600;cursor:pointer">+ Kişi Ekle</button>
+</div>`;
+
+  if(people.length===0){
+    h+=`<div style="font-size:12px;color:var(--txD);text-align:center;padding:10px;background:var(--cd);border-radius:8px">Henüz kimse kayıtlı değil.<br>Kişi ekleyip yüzlerini kameradan kaydedin.</div>`;
+  }else{
+    people.forEach((p,i)=>{
+      const hasFace=p.descriptors&&p.descriptors.length>=3;
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--cd);border-radius:8px;margin-bottom:4px;border:1px solid var(--bd)">
+<div style="display:flex;align-items:center;gap:8px">
+<div style="width:28px;height:28px;border-radius:50%;background:${hasFace?'var(--gn)':'var(--bd)'};display:flex;align-items:center;justify-content:center;font-size:11px;color:${hasFace?'white':'var(--txD)'}">${hasFace?'✓':'?'}</div>
+<div><div style="font-size:13px;font-weight:600">${p.name}</div>
+<div style="font-size:10px;color:${hasFace?'var(--gn)':'#f59e0b'}">${p.role?p.role+' — ':''}${hasFace?'Yüz kayıtlı':'Yüz kaydı gerekli'}</div></div>
+</div>
+<div style="display:flex;gap:4px">
+<button data-reg="${i}"class="reg-btn"style="padding:5px 10px;border-radius:6px;border:1px solid ${hasFace?'var(--gn)':'#f59e0b'};background:transparent;color:${hasFace?'var(--gn)':'#f59e0b'};font-size:10px;cursor:pointer">${hasFace?'Yenile':'📷 Kaydet'}</button>
+<button data-del="${i}"class="del-btn"style="padding:5px 8px;border-radius:6px;border:none;background:transparent;color:var(--rd);font-size:14px;cursor:pointer">✕</button>
+</div></div>`;
+    });
+  }
+
+  if(registering!==null){
+    h+=`<div style="margin-top:8px;padding:10px;background:var(--pr);border-radius:10px;color:var(--bg);text-align:center">
+<div style="font-weight:700;font-size:13px">${people[registering]?.name} — Kameraya bakın</div>
+<div style="font-size:11px;margin-top:2px">${regCount}/3 örnek — farklı açılardan bakın</div></div>`;
+  }
+
+  h+=`<div style="font-size:10px;color:var(--txD);margin-top:8px;line-height:1.5">
+Kişi ekle → kamerayı aç → "Kaydet" bas → 3 açıdan bak. Tanınan kişiler isimleriyle karşılanır.
+</div>
+</div>
+
 <button id="btn-close-bottom" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--cd);color:var(--txM);font-size:13px;font-weight:600;cursor:pointer;margin-top:12px">Kapat</button>
 </div></div>`;
   
@@ -1058,6 +1060,28 @@ Tüm ayarlar sadece bu cihazda saklanır.
   if(slSty)slSty.addEventListener('input',function(){S.elStyle=(this.value/100).toFixed(2);document.getElementById('sty-val').textContent=this.value+'%'});
   // Prevent card clicks from closing overlay
   document.getElementById('settings-card').addEventListener('click',function(e){e.stopPropagation()});
+  // Person management
+  const addBtn=document.getElementById('btn-add-person');
+  if(addBtn){addBtn.addEventListener('click',function(){
+    const name=prompt('Kişi adı:');
+    if(name&&name.trim()){
+      const role=prompt('Rolü (Yönetici / Çalışan / Müşteri):','');
+      people.push({name:name.trim(),role:role||'',descriptors:[]});
+      savePeople();renderSettings();
+    }
+  });}
+  document.querySelectorAll('.reg-btn').forEach(b=>{
+    b.addEventListener('click',function(){
+      S.showSettings=false;render();
+      setTimeout(()=>startRegistration(parseInt(this.dataset.reg)),300);
+    });
+  });
+  document.querySelectorAll('.del-btn').forEach(b=>{
+    b.addEventListener('click',function(){
+      const idx=parseInt(this.dataset.del);
+      if(confirm(people[idx]?.name+' silinsin mi?')){people.splice(idx,1);savePeople();renderSettings();}
+    });
+  });
 }
 
 function saveAllSettings(){
@@ -1153,25 +1177,6 @@ render=function(){
     else if(faceReady){startCamera();}
     else{initFaceDetection();}
   });}
-  // Person management
-  const addBtn=document.getElementById('btn-add-person');
-  if(addBtn&&!addBtn._b){addBtn._b=true;addBtn.addEventListener('click',function(){
-    const name=prompt('Kişi adı:');
-    if(name&&name.trim()){
-      const role=prompt('Rolü (Yönetici / Çalışan / Müşteri):','');
-      people.push({name:name.trim(),role:role||'',descriptors:[]});
-      savePeople();render();
-    }
-  });}
-  document.querySelectorAll('.reg-btn').forEach(b=>{
-    if(!b._b){b._b=true;b.addEventListener('click',function(){startRegistration(parseInt(this.dataset.reg))})}
-  });
-  document.querySelectorAll('.del-btn').forEach(b=>{
-    if(!b._b){b._b=true;b.addEventListener('click',function(){
-      const idx=parseInt(this.dataset.del);
-      if(confirm(people[idx]?.name+' silinsin mi?')){people.splice(idx,1);savePeople();render();}
-    })}
-  });
 }
 </script>
 </body>
