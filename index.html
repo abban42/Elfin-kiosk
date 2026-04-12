@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,maximum-scale=1">
-<title>Elfin AI Asistan v5</title>
+<title>Elfin AI Asistan v7</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -181,6 +181,10 @@ const S={
   elKey:localStorage.getItem('elfin_el_key')||'',
   elVoiceId:localStorage.getItem('elfin_el_voice')||'',
   ttsMode:localStorage.getItem('elfin_tts_mode')||'elevenlabs',
+  avatar:localStorage.getItem('elfin_avatar')||'female',
+  elStability:localStorage.getItem('elfin_el_stability')||'0.82',
+  elSimilarity:localStorage.getItem('elfin_el_similarity')||'0.80',
+  elStyle:localStorage.getItem('elfin_el_style')||'0.08',
   showSettings:false,toast:null
 };
 let inactT,mouthT,rec;
@@ -396,7 +400,12 @@ async function speakElevenLabs(text){
     body:JSON.stringify({
       text:text,
       model_id:'eleven_multilingual_v2',
-      voice_settings:{stability:0.5,similarity_boost:0.75,style:0.4,use_speaker_boost:true}
+      voice_settings:{
+        stability: parseFloat(S.elStability||0.82),
+        similarity_boost: parseFloat(S.elSimilarity||0.80),
+        style: parseFloat(S.elStyle||0.08),
+        use_speaker_boost:true
+      }
     })
   });
   if(!res.ok)throw new Error('ElevenLabs error: '+res.status);
@@ -551,24 +560,9 @@ function handleReset(){speechSynthesis?.cancel();stopMouth();S.mode="idle";S.msg
 }
 
 // ═══ AVATAR SVG ═══
-function avSVG(sc){
-  const md=S.mode,bl=S.blink,ex=S.eye.x,ey=S.eye.y,mp=S.mouth,pd=S.pointDir;
-  const isA=md!=="idle";
-  const ht=md==="thinking"?4:md==="greeting"?-3:pd==="right"?-4:pd==="left"?4:0;
-  const br=md==="greeting"?-3:md==="thinking"?-2:0;
-  const la=pd==="left"?"M72 260Q30 230 15 190Q8 170 18 165":"M72 260Q58 285 55 315Q53 330 58 335";
-  const ra=pd==="right"?"M228 260Q270 230 285 190Q292 170 282 165":"M228 260Q242 285 245 315Q247 330 242 335";
-  const lx=pd==="left"?14:55,ly=pd==="left"?162:333,rx=pd==="right"?286:245,ry=pd==="right"?162:333;
-  const lf=pd==="left"?'<g transform="translate(-2,-10)rotate(-30,14,165)"><line x1="10"y1="158"x2="2"y2="145"stroke="#f5d0a9"stroke-width="3.5"stroke-linecap="round"/><line x1="14"y1="155"x2="8"y2="140"stroke="#f5d0a9"stroke-width="3.2"stroke-linecap="round"/><line x1="18"y1="155"x2="14"y2="140"stroke="#f5d0a9"stroke-width="3"stroke-linecap="round"/></g>':'';
-  const rf=pd==="right"?'<g transform="translate(2,-10)rotate(30,286,165)"><line x1="290"y1="158"x2="298"y2="145"stroke="#f5d0a9"stroke-width="3.5"stroke-linecap="round"/><line x1="286"y1="155"x2="292"y2="140"stroke="#f5d0a9"stroke-width="3.2"stroke-linecap="round"/><line x1="282"y1="155"x2="286"y2="140"stroke="#f5d0a9"stroke-width="3"stroke-linecap="round"/></g>':'';
-  const mo=md==="speaking"?`<ellipse cx="150"cy="185"rx="${mp===2?14:mp===1?10:7}"ry="${mp===0?3:mp===1?8:12}"fill="#b8423a"stroke="#c4524a"stroke-width="1.5"style="transition:all .08s"/>`
-    :`<path d="${isA?"M134 181Q142 192 150 192Q158 192 166 181":"M136 183Q143 188 150 188Q157 188 164 183"}"stroke="#c4524a"stroke-width="2.5"fill="none"stroke-linecap="round"style="transition:all .5s"/>`;
-  const bsh=isA?'<ellipse cx="105"cy="168"rx="12"ry="7"fill="#ffb4a8"opacity=".18"/><ellipse cx="195"cy="168"rx="12"ry="7"fill="#ffb4a8"opacity=".18"/>':'';
-  const lg=md==="listening"?'<circle cx="86"cy="142"r="3"fill="#ffc72c"><animate attributeName="opacity"values=".2;.8;.2"dur="1.5s"repeatCount="indefinite"/></circle>':'';
-  const thk=md==="thinking"?[0,1,2].map(i=>`<circle cx="${138+i*12}"cy="360"r="4.5"fill="#00c8ff"><animate attributeName="opacity"values=".2;1;.2"dur="1.2s"repeatCount="indefinite"begin="${i*.2}s"/></circle>`).join(''):'';
-  const idp=md==="idle"?'<circle cx="150"cy="155"r="90"fill="none"stroke="#00c8ff"stroke-width=".6"opacity="0"><animate attributeName="r"values="90;130"dur="3.5s"repeatCount="indefinite"/><animate attributeName="opacity"values=".3;0"dur="3.5s"repeatCount="indefinite"/></circle>':'';
-  const w=Math.round(240*(sc||1));
-  return`<svg viewBox="0 0 300 380"width="${w}"style="filter:drop-shadow(0 12px 40px rgba(0,200,255,.15))">
+// ═══ AVATAR — ERKEK KLASİK ═══
+function avMale(sc,md,bl,ex,ey,mp,pd,isA,ht,br,la,ra,lx,ly,rx,ry,lf,rf,mo,bsh,lg,thk,idp,w){
+return`<svg viewBox="0 0 300 380"width="${w}"style="filter:drop-shadow(0 12px 40px rgba(0,200,255,.15))">
 <defs><radialGradient id="aG"cx="50%"cy="40%"r="50%"><stop offset="0%"stop-color="#00c8ff"stop-opacity=".06"/><stop offset="100%"stop-color="transparent"/></radialGradient><radialGradient id="fG"cx="42%"cy="32%"r="58%"><stop offset="0%"stop-color="#fce4cc"/><stop offset="100%"stop-color="#e8b88a"/></radialGradient><linearGradient id="sG"x1="0%"y1="0%"x2="0%"y2="100%"><stop offset="0%"stop-color="#1e4080"/><stop offset="100%"stop-color="#122a58"/></linearGradient><linearGradient id="hG"><stop offset="0%"stop-color="#1c1825"/><stop offset="100%"stop-color="#2a2235"/></linearGradient><filter id="sh"><feDropShadow dx="0"dy="3"stdDeviation="4"flood-color="#00000055"/></filter><clipPath id="leC"><ellipse cx="122"cy="142"rx="16"ry="17"/></clipPath><clipPath id="reC"><ellipse cx="178"cy="142"rx="16"ry="17"/></clipPath></defs>
 <circle cx="150"cy="155"r="140"fill="url(#aG)"><animate attributeName="r"values="136;144;136"dur="5s"repeatCount="indefinite"/></circle>
 <g style="transition:all .6s cubic-bezier(.34,1.56,.64,1)">
@@ -608,6 +602,126 @@ ${mo}${bsh}
 <circle cx="98"cy="174"r="5.5"fill="#ffc72c"/><circle cx="98"cy="174"r="3"fill="#060a14"/>
 </g>${thk}${idp}</svg>`}
 
+// ═══ AVATAR — KADIN ═══
+function avFemale(sc,md,bl,ex,ey,mp,pd,isA,ht,br,la,ra,lx,ly,rx,ry,lf,rf,mo_,bsh,lg,thk,idp,w){
+const moF=md==="speaking"?`<ellipse cx="150"cy="182"rx="${mp===2?12:mp===1?9:6}"ry="${mp===0?3:mp===1?7:10}"fill="#c44040"stroke="#d45a5a"stroke-width="1.5"style="transition:all .08s"/>`
+  :`<path d="M138 179Q144 172 150 172Q156 172 162 179"fill="#d45a5a"stroke="#c44040"stroke-width="1"stroke-linecap="round"/><path d="M138 179Q144 186 150 186Q156 186 162 179"fill="#e87070"stroke="#c44040"stroke-width="1"stroke-linecap="round"/>`;
+return`<svg viewBox="0 0 300 380"width="${w}"style="filter:drop-shadow(0 12px 40px rgba(255,105,180,.12))">
+<defs><radialGradient id="aG"cx="50%"cy="40%"r="50%"><stop offset="0%"stop-color="#ff69b4"stop-opacity=".06"/><stop offset="100%"stop-color="transparent"/></radialGradient><radialGradient id="fG"cx="42%"cy="32%"r="58%"><stop offset="0%"stop-color="#fce4cc"/><stop offset="100%"stop-color="#e8b88a"/></radialGradient><linearGradient id="sG"x1="0%"y1="0%"x2="0%"y2="100%"><stop offset="0%"stop-color="#1e4080"/><stop offset="100%"stop-color="#122a58"/></linearGradient><linearGradient id="hairF"x1="0%"y1="0%"x2="100%"y2="100%"><stop offset="0%"stop-color="#2a1a0a"/><stop offset="100%"stop-color="#4a2a12"/></linearGradient><filter id="sh"><feDropShadow dx="0"dy="3"stdDeviation="4"flood-color="#00000055"/></filter><clipPath id="leC"><ellipse cx="122"cy="142"rx="15"ry="16"/></clipPath><clipPath id="reC"><ellipse cx="178"cy="142"rx="15"ry="16"/></clipPath></defs>
+<circle cx="150"cy="155"r="140"fill="url(#aG)"><animate attributeName="r"values="136;144;136"dur="5s"repeatCount="indefinite"/></circle>
+<g style="transition:all .6s cubic-bezier(.34,1.56,.64,1)">
+<path d="${la.replace(/72 260/g,'75 258').replace(/228 260/g,'225 258')}"stroke="#e8b88a"stroke-width="18"fill="none"stroke-linecap="round"style="transition:d .6s cubic-bezier(.34,1.56,.64,1)"/>
+<path d="${la.replace(/72 260/g,'75 258').replace(/228 260/g,'225 258')}"stroke="#f5d0a9"stroke-width="14"fill="none"stroke-linecap="round"style="transition:d .6s cubic-bezier(.34,1.56,.64,1)"/>
+<circle cx="75"cy="258"r="12"fill="#1a3a6b"/>
+<circle cx="${pd==='left'?lx:56}"cy="${pd==='left'?ly:330}"r="10"fill="#f5d0a9"style="transition:all .6s cubic-bezier(.34,1.56,.64,1)"/>${lf}
+<path d="${ra.replace(/72 260/g,'75 258').replace(/228 260/g,'225 258')}"stroke="#e8b88a"stroke-width="18"fill="none"stroke-linecap="round"style="transition:d .6s cubic-bezier(.34,1.56,.64,1)"/>
+<path d="${ra.replace(/72 260/g,'75 258').replace(/228 260/g,'225 258')}"stroke="#f5d0a9"stroke-width="14"fill="none"stroke-linecap="round"style="transition:d .6s cubic-bezier(.34,1.56,.64,1)"/>
+<circle cx="225"cy="258"r="12"fill="#1a3a6b"/>
+<circle cx="${pd==='right'?rx:244}"cy="${pd==='right'?ry:330}"r="10"fill="#f5d0a9"style="transition:all .6s cubic-bezier(.34,1.56,.64,1)"/>${rf}
+</g>
+<g transform="rotate(${ht},150,170)"style="transition:transform .6s cubic-bezier(.34,1.56,.64,1)">
+<rect x="138"y="213"width="24"height="22"rx="8"fill="#e8b88a"/>
+<path d="M75 248Q84 234 120 226L138 234L162 234L180 226Q216 234 225 248L228 340Q150 352 72 340Z"fill="url(#sG)"filter="url(#sh)"/>
+<path d="M132 234L150 250L168 234"fill="none"stroke="#ffc72c"stroke-width="3"stroke-linecap="round"stroke-linejoin="round"/>
+<g transform="translate(165,264)"><rect width="22"height="12"rx="3"fill="#ffc72c"/><text x="11"y="9"font-size="6.5"fill="#060a14"text-anchor="middle"font-weight="800">ELFiN</text></g>
+<ellipse cx="150"cy="148"rx="60"ry="66"fill="url(#fG)"filter="url(#sh)"/>
+<ellipse cx="91"cy="148"rx="9"ry="14"fill="#e8b88a"/><ellipse cx="209"cy="148"rx="9"ry="14"fill="#e8b88a"/>
+<circle cx="91"cy="165"r="3"fill="#ffc72c"opacity=".8"/><circle cx="209"cy="165"r="3"fill="#ffc72c"opacity=".8"/>
+<path d="M90 125Q92 72 150 62Q208 72 210 125L206 108Q202 78 150 68Q98 78 94 108Z"fill="url(#hairF)"/>
+<path d="M90 125Q86 155 82 190Q78 220 85 240"stroke="url(#hairF)"stroke-width="20"fill="none"stroke-linecap="round"/>
+<path d="M210 125Q214 155 218 190Q222 220 215 240"stroke="url(#hairF)"stroke-width="20"fill="none"stroke-linecap="round"/>
+<path d="M90 125Q86 155 82 190Q78 220 85 240"stroke="#3a200a"stroke-width="16"fill="none"stroke-linecap="round"opacity=".6"/>
+<path d="M210 125Q214 155 218 190Q222 220 215 240"stroke="#3a200a"stroke-width="16"fill="none"stroke-linecap="round"opacity=".6"/>
+<path d="M110 75Q130 67 155 70"stroke="#ffffff"stroke-width="1"opacity=".12"fill="none"/>
+<path d="M108 126Q118 119 132 124"stroke="#2a1a0a"stroke-width="2.2"fill="none"stroke-linecap="round"/>
+<path d="M168 124Q182 119 192 126"stroke="#2a1a0a"stroke-width="2.2"fill="none"stroke-linecap="round"/>
+<g style="transition:transform .3s"transform="translate(${ex*.8},${ey*.6})">
+<ellipse cx="122"cy="142"rx="15"ry="${bl?1.5:16}"fill="white"style="transition:ry .1s"/>
+${!bl?`<g clip-path="url(#leC)"><circle cx="${122+ex*.5}"cy="${143+ey*.3}"r="9"fill="#2a5a3a"/><circle cx="${122+ex*.5}"cy="${143+ey*.3}"r="5.5"fill="#0a2515"/><circle cx="119"cy="140"r="3"fill="white"opacity=".9"/><circle cx="125"cy="145"r="1.5"fill="white"opacity=".4"/></g>`:''}
+<path d="M107 ${bl?142:129}Q115 ${bl?141:124} 122 ${bl?141:123}Q129 ${bl?141:124} 137 ${bl?142:129}"fill="none"stroke="#1a0a00"stroke-width="2"stroke-linecap="round"/>
+${!bl?'<line x1="109"y1="131"x2="106"y2="126"stroke="#1a0a00"stroke-width="1.5"stroke-linecap="round"/><line x1="135"y1="131"x2="138"y2="126"stroke="#1a0a00"stroke-width="1.5"stroke-linecap="round"/>':''}
+<ellipse cx="178"cy="142"rx="15"ry="${bl?1.5:16}"fill="white"style="transition:ry .1s"/>
+${!bl?`<g clip-path="url(#reC)"><circle cx="${178+ex*.5}"cy="${143+ey*.3}"r="9"fill="#2a5a3a"/><circle cx="${178+ex*.5}"cy="${143+ey*.3}"r="5.5"fill="#0a2515"/><circle cx="175"cy="140"r="3"fill="white"opacity=".9"/><circle cx="181"cy="145"r="1.5"fill="white"opacity=".4"/></g>`:''}
+<path d="M163 ${bl?142:129}Q171 ${bl?141:124} 178 ${bl?141:123}Q185 ${bl?141:124} 193 ${bl?142:129}"fill="none"stroke="#1a0a00"stroke-width="2"stroke-linecap="round"/>
+${!bl?'<line x1="165"y1="131"x2="162"y2="126"stroke="#1a0a00"stroke-width="1.5"stroke-linecap="round"/><line x1="191"y1="131"x2="194"y2="126"stroke="#1a0a00"stroke-width="1.5"stroke-linecap="round"/>':''}
+</g>
+<path d="M148 153Q150 160 147 164Q150 166 153 164"fill="none"stroke="#d4a07a"stroke-width="1.2"stroke-linecap="round"/>
+${moF}
+<ellipse cx="105"cy="165"rx="13"ry="8"fill="#ffb4a8"opacity=".2"/><ellipse cx="195"cy="165"rx="13"ry="8"fill="#ffb4a8"opacity=".2"/>
+<path d="M85 135Q80 105 100 86"stroke="#ffc72c"stroke-width="3.5"fill="none"stroke-linecap="round"/>
+<circle cx="86"cy="140"r="8"fill="#ffc72c"/><circle cx="86"cy="140"r="5"fill="#060a14"/>${lg.replace('142','140')}
+<path d="M86 148Q88 157 96 168"stroke="#ffc72c"stroke-width="2"fill="none"stroke-linecap="round"/>
+<circle cx="97"cy="170"r="5"fill="#ffc72c"/><circle cx="97"cy="170"r="2.8"fill="#060a14"/>
+</g>${thk}${idp}</svg>`}
+
+// ═══ AVATAR — GENÇ MODERN ═══
+function avYoung(sc,md,bl,ex,ey,mp,pd,isA,ht,br,la,ra,lx,ly,rx,ry,lf,rf,mo,bsh,lg,thk,idp,w){
+return`<svg viewBox="0 0 300 380"width="${w}"style="filter:drop-shadow(0 12px 40px rgba(34,197,94,.12))">
+<defs><radialGradient id="aG"cx="50%"cy="40%"r="50%"><stop offset="0%"stop-color="#22c55e"stop-opacity=".06"/><stop offset="100%"stop-color="transparent"/></radialGradient><radialGradient id="fG"cx="42%"cy="32%"r="58%"><stop offset="0%"stop-color="#f5dcc4"/><stop offset="100%"stop-color="#d4a87a"/></radialGradient><linearGradient id="sG"x1="0%"y1="0%"x2="0%"y2="100%"><stop offset="0%"stop-color="#1e4080"/><stop offset="100%"stop-color="#122a58"/></linearGradient><linearGradient id="hG"x1="0%"y1="0%"x2="100%"y2="100%"><stop offset="0%"stop-color="#2a1a0a"/><stop offset="50%"stop-color="#3a2510"/><stop offset="100%"stop-color="#1a1008"/></linearGradient><filter id="sh"><feDropShadow dx="0"dy="3"stdDeviation="4"flood-color="#00000055"/></filter><clipPath id="leC"><ellipse cx="122"cy="142"rx="14"ry="16"/></clipPath><clipPath id="reC"><ellipse cx="178"cy="142"rx="14"ry="16"/></clipPath></defs>
+<circle cx="150"cy="155"r="140"fill="url(#aG)"><animate attributeName="r"values="136;144;136"dur="5s"repeatCount="indefinite"/></circle>
+<g style="transition:all .6s cubic-bezier(.34,1.56,.64,1)">
+<path d="${la.replace(/72 260/g,'75 256').replace(/228 260/g,'225 256')}"stroke="#d4a87a"stroke-width="20"fill="none"stroke-linecap="round"style="transition:d .6s cubic-bezier(.34,1.56,.64,1)"/>
+<path d="${la.replace(/72 260/g,'75 256').replace(/228 260/g,'225 256')}"stroke="#e8b88a"stroke-width="16"fill="none"stroke-linecap="round"style="transition:d .6s cubic-bezier(.34,1.56,.64,1)"/>
+<circle cx="75"cy="256"r="13"fill="#1a3a6b"/>
+<circle cx="${pd==='left'?lx:56}"cy="${pd==='left'?ly:330}"r="11"fill="#e8b88a"style="transition:all .6s cubic-bezier(.34,1.56,.64,1)"/>${lf}
+<path d="${ra.replace(/72 260/g,'75 256').replace(/228 260/g,'225 256')}"stroke="#d4a87a"stroke-width="20"fill="none"stroke-linecap="round"style="transition:d .6s cubic-bezier(.34,1.56,.64,1)"/>
+<path d="${ra.replace(/72 260/g,'75 256').replace(/228 260/g,'225 256')}"stroke="#e8b88a"stroke-width="16"fill="none"stroke-linecap="round"style="transition:d .6s cubic-bezier(.34,1.56,.64,1)"/>
+<circle cx="225"cy="256"r="13"fill="#1a3a6b"/>
+<circle cx="${pd==='right'?rx:244}"cy="${pd==='right'?ry:330}"r="11"fill="#e8b88a"style="transition:all .6s cubic-bezier(.34,1.56,.64,1)"/>${rf}
+</g>
+<g transform="rotate(${ht},150,170)"style="transition:transform .6s cubic-bezier(.34,1.56,.64,1)">
+<rect x="137"y="212"width="26"height="24"rx="9"fill="#d4a87a"/>
+<path d="M75 248Q84 234 120 226L137 234L163 234L180 226Q216 234 225 248L228 340Q150 352 72 340Z"fill="url(#sG)"filter="url(#sh)"/>
+<path d="M131 234L150 252L169 234"fill="none"stroke="#ffc72c"stroke-width="3.2"stroke-linecap="round"stroke-linejoin="round"/>
+<g transform="translate(166,266)"><rect width="24"height="13"rx="3"fill="#ffc72c"/><text x="12"y="10"font-size="7"fill="#060a14"text-anchor="middle"font-weight="800">ELFiN</text></g>
+<ellipse cx="150"cy="146"rx="60"ry="67"fill="url(#fG)"filter="url(#sh)"/>
+<ellipse cx="91"cy="148"rx="9"ry="15"fill="#d4a87a"/><ellipse cx="209"cy="148"rx="9"ry="15"fill="#d4a87a"/>
+<path d="M92 120Q94 68 150 58Q206 68 208 120L204 105Q200 75 150 65Q100 75 96 105Z"fill="url(#hG)"/>
+<path d="M92 120Q88 100 95 82Q110 62 150 58Q100 65 92 100"fill="url(#hG)"/>
+<path d="M92 120Q86 135 88 150"stroke="url(#hG)"stroke-width="14"fill="none"stroke-linecap="round"/>
+<ellipse cx="150"cy="190"rx="30"ry="18"fill="#1a1008"opacity=".06"/>
+<path d="M106 122Q116 115 134 120"stroke="#1a1008"stroke-width="3.5"fill="none"stroke-linecap="round"/>
+<path d="M166 120Q184 115 194 122"stroke="#1a1008"stroke-width="3.5"fill="none"stroke-linecap="round"/>
+<g style="transition:transform .3s"transform="translate(${ex*.8},${ey*.6})">
+<ellipse cx="122"cy="142"rx="14"ry="${bl?1.5:16}"fill="white"style="transition:ry .1s"/>
+${!bl?`<g clip-path="url(#leC)"><circle cx="${122+ex*.5}"cy="${143+ey*.3}"r="9"fill="#3a2510"/><circle cx="${122+ex*.5}"cy="${143+ey*.3}"r="5.5"fill="#1a1008"/><circle cx="119"cy="140"r="2.5"fill="white"opacity=".9"/></g>`:''}
+<ellipse cx="178"cy="142"rx="14"ry="${bl?1.5:16}"fill="white"style="transition:ry .1s"/>
+${!bl?`<g clip-path="url(#reC)"><circle cx="${178+ex*.5}"cy="${143+ey*.3}"r="9"fill="#3a2510"/><circle cx="${178+ex*.5}"cy="${143+ey*.3}"r="5.5"fill="#1a1008"/><circle cx="175"cy="140"r="2.5"fill="white"opacity=".9"/></g>`:''}
+</g>
+<path d="M148 152Q150 162 146 167Q150 170 154 167"fill="none"stroke="#c49060"stroke-width="1.4"stroke-linecap="round"/>
+${mo}${bsh}
+<path d="M85 133Q82 108 98 88"stroke="#00c8ff"stroke-width="3.5"fill="none"stroke-linecap="round"/>
+<circle cx="86"cy="140"r="8"fill="#00c8ff"/><circle cx="86"cy="140"r="5"fill="#060a14"/>
+<circle cx="86"cy="140"r="2.5"fill="#00c8ff"opacity=".5"><animate attributeName="opacity"values=".3;.8;.3"dur="2s"repeatCount="indefinite"/></circle>
+<path d="M86 148Q88 156 96 166"stroke="#00c8ff"stroke-width="2"fill="none"stroke-linecap="round"/>
+<circle cx="97"cy="168"r="5"fill="#00c8ff"/><circle cx="97"cy="168"r="2.8"fill="#060a14"/>
+</g>${thk}${idp}</svg>`}
+
+// ═══ AVATAR DISPATCHER ═══
+function avSVG(sc){
+  const md=S.mode,bl=S.blink,ex=S.eye.x,ey=S.eye.y,mp=S.mouth,pd=S.pointDir;
+  const isA=md!=="idle";
+  const ht=md==="thinking"?4:md==="greeting"?-3:pd==="right"?-4:pd==="left"?4:0;
+  const br=md==="greeting"?-3:md==="thinking"?-2:0;
+  const la=pd==="left"?"M72 260Q30 230 15 190Q8 170 18 165":"M72 260Q58 285 55 315Q53 330 58 335";
+  const ra=pd==="right"?"M228 260Q270 230 285 190Q292 170 282 165":"M228 260Q242 285 245 315Q247 330 242 335";
+  const lx=pd==="left"?14:55,ly=pd==="left"?162:333,rx=pd==="right"?286:245,ry=pd==="right"?162:333;
+  const lf=pd==="left"?'<g transform="translate(-2,-10)rotate(-30,14,165)"><line x1="10"y1="158"x2="2"y2="145"stroke="#f5d0a9"stroke-width="3.5"stroke-linecap="round"/><line x1="14"y1="155"x2="8"y2="140"stroke="#f5d0a9"stroke-width="3.2"stroke-linecap="round"/><line x1="18"y1="155"x2="14"y2="140"stroke="#f5d0a9"stroke-width="3"stroke-linecap="round"/></g>':'';
+  const rf=pd==="right"?'<g transform="translate(2,-10)rotate(30,286,165)"><line x1="290"y1="158"x2="298"y2="145"stroke="#f5d0a9"stroke-width="3.5"stroke-linecap="round"/><line x1="286"y1="155"x2="292"y2="140"stroke="#f5d0a9"stroke-width="3.2"stroke-linecap="round"/><line x1="282"y1="155"x2="286"y2="140"stroke="#f5d0a9"stroke-width="3"stroke-linecap="round"/></g>':'';
+  const mo=md==="speaking"?`<ellipse cx="150"cy="185"rx="${mp===2?14:mp===1?10:7}"ry="${mp===0?3:mp===1?8:12}"fill="#b8423a"stroke="#c4524a"stroke-width="1.5"style="transition:all .08s"/>`
+    :`<path d="${isA?"M134 181Q142 192 150 192Q158 192 166 181":"M136 183Q143 188 150 188Q157 188 164 183"}"stroke="#c4524a"stroke-width="2.5"fill="none"stroke-linecap="round"style="transition:all .5s"/>`;
+  const bsh=isA?'<ellipse cx="105"cy="168"rx="12"ry="7"fill="#ffb4a8"opacity=".18"/><ellipse cx="195"cy="168"rx="12"ry="7"fill="#ffb4a8"opacity=".18"/>':'';
+  const lg=md==="listening"?'<circle cx="86"cy="142"r="3"fill="#ffc72c"><animate attributeName="opacity"values=".2;.8;.2"dur="1.5s"repeatCount="indefinite"/></circle>':'';
+  const thk=md==="thinking"?[0,1,2].map(i=>`<circle cx="${138+i*12}"cy="360"r="4.5"fill="#00c8ff"><animate attributeName="opacity"values=".2;1;.2"dur="1.2s"repeatCount="indefinite"begin="${i*.2}s"/></circle>`).join(''):'';
+  const idp=md==="idle"?'<circle cx="150"cy="155"r="90"fill="none"stroke="#00c8ff"stroke-width=".6"opacity="0"><animate attributeName="r"values="90;130"dur="3.5s"repeatCount="indefinite"/><animate attributeName="opacity"values=".3;0"dur="3.5s"repeatCount="indefinite"/></circle>':'';
+  const w=Math.round(240*(sc||1));
+  const args=[sc,md,bl,ex,ey,mp,pd,isA,ht,br,la,ra,lx,ly,rx,ry,lf,rf,mo,bsh,lg,thk,idp,w];
+  
+  if(S.avatar==='female') return avFemale(...args);
+  if(S.avatar==='young') return avYoung(...args);
+  return avMale(...args);
+}
+
 function rAvatar(){const el=document.getElementById('avc');if(el)el.innerHTML=avSVG(S.mode!=="idle"?.55:.85)}
 
 // ═══ PRODUCT CARD ═══
@@ -631,7 +745,7 @@ function render(){
   let h='';
 
   // Header
-  h+=`<div class="header"><div class="hdr-l"><div class="logo">E</div><div><div style="font-size:14px;font-weight:700">Elfin Iletisim</div><div style="font-size:10px;color:var(--txD)">AI Asistan v5</div></div></div>
+  h+=`<div class="header"><div class="hdr-l"><div class="logo">E</div><div><div style="font-size:14px;font-weight:700">Elfin Iletisim</div><div style="font-size:10px;color:var(--txD)">AI Asistan v7</div></div></div>
 <div class="hdr-r"><div class="st-badge"><div class="st-dot"style="background:${stC};box-shadow:${S.mode!=="idle"?`0 0 8px var(--gn)`:"none"}"></div>${stL[S.mode]}</div>
 <button class="btn-s"onclick="S.showSettings=true;render()">⚙</button>
 ${ic?'<button class="btn-s"onclick="handleReset()">Sifirla</button>':''}</div></div>`;
@@ -714,6 +828,15 @@ function renderSettings(){
 <div class="settings-card" id="settings-card">
 <div class="settings-title">Ayarlar<button id="btn-close-settings" style="background:none;border:none;color:var(--txD);font-size:18px;cursor:pointer">✕</button></div>
 
+<div style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--bd)">
+<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:var(--ac)">Avatar Seçimi</div>
+<div style="display:flex;gap:6px" id="avatar-btns">
+<button data-av="female" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid ${S.avatar==='female'?'#ff69b4':'var(--bd)'};background:${S.avatar==='female'?'#ff69b422':'var(--cd)'};color:${S.avatar==='female'?'#ff69b4':'var(--txM)'};font-size:11px;font-weight:600;cursor:pointer">👩 Kadın</button>
+<button data-av="young" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid ${S.avatar==='young'?'var(--gn)':'var(--bd)'};background:${S.avatar==='young'?'var(--gn)15':'var(--cd)'};color:${S.avatar==='young'?'var(--gn)':'var(--txM)'};font-size:11px;font-weight:600;cursor:pointer">👨 Genç</button>
+<button data-av="male" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid ${S.avatar==='male'?'var(--ac)':'var(--bd)'};background:${S.avatar==='male'?'var(--ac)15':'var(--cd)'};color:${S.avatar==='male'?'var(--ac)':'var(--txM)'};font-size:11px;font-weight:600;cursor:pointer">🧑 Klasik</button>
+</div>
+</div>
+
 <label class="settings-label">Claude API Key</label>
 <input class="settings-input"id="api-inp"type="password"value="${escH(S.apiKey)}"placeholder="sk-ant-..."/>
 
@@ -742,6 +865,33 @@ ${elVoices.map(v=>`<option value="${v.id}"${v.id===curVoice?' selected':''}>${v.
 <button id="btn-test-voice" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--bd);
   background:var(--cd);color:var(--ac);font-size:12px;font-weight:600;cursor:pointer;margin-bottom:12px">
   🔊 Sesi Test Et</button>
+
+<div style="margin-bottom:12px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+<span style="font-size:11px;color:var(--txM)">Tutarlılık (Stability)</span>
+<span id="stab-val"style="font-size:11px;color:var(--pr);font-weight:600">${Math.round(parseFloat(S.elStability)*100)}%</span>
+</div>
+<input type="range"id="sl-stab"min="0"max="100"value="${Math.round(parseFloat(S.elStability)*100)}"style="width:100%;accent-color:var(--pr)"/>
+<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--txD)"><span>Değişken</span><span>Sabit</span></div>
+</div>
+
+<div style="margin-bottom:12px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+<span style="font-size:11px;color:var(--txM)">Benzerlik (Similarity)</span>
+<span id="sim-val"style="font-size:11px;color:var(--pr);font-weight:600">${Math.round(parseFloat(S.elSimilarity)*100)}%</span>
+</div>
+<input type="range"id="sl-sim"min="0"max="100"value="${Math.round(parseFloat(S.elSimilarity)*100)}"style="width:100%;accent-color:var(--pr)"/>
+<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--txD)"><span>Düşük</span><span>Yüksek</span></div>
+</div>
+
+<div style="margin-bottom:12px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+<span style="font-size:11px;color:var(--txM)">Duygu/Stil (Style)</span>
+<span id="sty-val"style="font-size:11px;color:var(--pr);font-weight:600">${Math.round(parseFloat(S.elStyle)*100)}%</span>
+</div>
+<input type="range"id="sl-sty"min="0"max="50"value="${Math.round(parseFloat(S.elStyle)*100)}"style="width:100%;accent-color:var(--pr)"/>
+<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--txD)"><span>Nötr</span><span>Duygusal</span></div>
+</div>
 </div>
 
 <button class="settings-btn" id="btn-save-settings">Tüm Ayarları Kaydet</button>
@@ -756,7 +906,11 @@ ${elVoices.map(v=>`<option value="${v.id}"${v.id===curVoice?' selected':''}>${v.
 <b>Claude API Key:</b> console.anthropic.com<br>
 <b>ElevenLabs API Key:</b> elevenlabs.com → Profile → API Key<br>
 Ücretsiz plan: aylık 10.000 karakter<br><br>
-Tüm key'ler sadece bu cihazda saklanır.
+<b>Ses ayar ipuçları:</b><br>
+Tutarlılık %80+ → her seferinde aynı ton<br>
+Stil %10 altı → profesyonel, nötr ses<br>
+Ayarladıktan sonra "Sesi Test Et" ile deneyin<br><br>
+Tüm ayarlar sadece bu cihazda saklanır.
 </div>
 </div></div>`;
   
@@ -773,6 +927,17 @@ Tüm key'ler sadece bu cihazda saklanır.
   document.getElementById('btn-test-voice').addEventListener('click',function(){testVoice()});
   document.getElementById('btn-tts-el').addEventListener('click',function(){S.ttsMode='elevenlabs';renderSettings()});
   document.getElementById('btn-tts-br').addEventListener('click',function(){S.ttsMode='browser';renderSettings()});
+  // Avatar buttons
+  document.querySelectorAll('#avatar-btns button').forEach(b=>{
+    b.addEventListener('click',function(){S.avatar=this.dataset.av;localStorage.setItem('elfin_avatar',S.avatar);renderSettings();rAvatar()});
+  });
+  // Voice tuning sliders
+  const slStab=document.getElementById('sl-stab');
+  const slSim=document.getElementById('sl-sim');
+  const slSty=document.getElementById('sl-sty');
+  if(slStab)slStab.addEventListener('input',function(){S.elStability=(this.value/100).toFixed(2);document.getElementById('stab-val').textContent=this.value+'%'});
+  if(slSim)slSim.addEventListener('input',function(){S.elSimilarity=(this.value/100).toFixed(2);document.getElementById('sim-val').textContent=this.value+'%'});
+  if(slSty)slSty.addEventListener('input',function(){S.elStyle=(this.value/100).toFixed(2);document.getElementById('sty-val').textContent=this.value+'%'});
   // Prevent card clicks from closing overlay
   document.getElementById('settings-card').addEventListener('click',function(e){e.stopPropagation()});
 }
@@ -788,6 +953,10 @@ function saveAllSettings(){
   localStorage.setItem('elfin_el_key',elKey);
   localStorage.setItem('elfin_el_voice',voiceId);
   localStorage.setItem('elfin_tts_mode',ttsMode);
+  localStorage.setItem('elfin_avatar',S.avatar);
+  localStorage.setItem('elfin_el_stability',S.elStability);
+  localStorage.setItem('elfin_el_similarity',S.elSimilarity);
+  localStorage.setItem('elfin_el_style',S.elStyle);
   
   S.showSettings=false;
   render();
