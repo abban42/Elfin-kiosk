@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,maximum-scale=1">
-<title>Elfin AI Asistan v9</title>
+<title>Ayşe — Elfin İletişim AI Asistan</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -153,31 +153,31 @@ async function loadWebsiteData(){
     const tRes=await fetch(DATA_URL+'/tariffs_custom.json');
     if(tRes.ok){
       const tData=await tRes.json();
-      // tariffs_custom.json: array of category objects with tarifeler arrays
-      if(Array.isArray(tData)){
-        let tId=0;
-        tData.forEach(cat=>{
-          if(cat.tarifeler&&Array.isArray(cat.tarifeler)){
-            cat.tarifeler.forEach(t=>{
-              tId++;
-              tarifeler.push({
-                id:'t'+tId,
-                type:'tarife',
-                name:t.ad||'',
-                price:(t.fiyat||0)+' TL/ay',
-                desc:t.icerik||'',
-                features:[
-                  t.gb?t.gb+' İnternet':null,
-                  t.dk?(t.dk>=3000?'Sınırsız Dakika':t.dk+' Dakika'):null,
-                  t.sms?(t.sms>=3000?'Sınırsız SMS':t.sms+' SMS'):null,
-                ].filter(Boolean),
-                category:cat.ad||'',
-                raw:t
-              });
+      // Structure: {"tarifeler":[{ad:"Kategori",tarifeler:[{ad,icerik,gb,dk,sms,fiyat},...]},...]}
+      const categories=tData.tarifeler||tData;
+      const catArray=Array.isArray(categories)?categories:[];
+      let tId=0;
+      catArray.forEach(cat=>{
+        if(cat.tarifeler&&Array.isArray(cat.tarifeler)){
+          cat.tarifeler.forEach(t=>{
+            tId++;
+            tarifeler.push({
+              id:'t'+tId,
+              type:'tarife',
+              name:t.ad||'',
+              price:(t.fiyat||0)+' TL/ay',
+              desc:t.icerik||'',
+              features:[
+                t.gb?t.gb+' GB İnternet':null,
+                t.dk?(t.dk>=3000?'Sınırsız Dakika':t.dk+' Dakika'):null,
+                t.sms?(t.sms>=3000?'Sınırsız SMS':t.sms+' SMS'):null,
+              ].filter(Boolean),
+              category:cat.ad||'',
+              raw:t
             });
-          }
-        });
-      }
+          });
+        }
+      });
       toast('Tarifeler yüklendi: '+tarifeler.length+' tarife');
     }
   }catch(e){console.log('Tarife yükleme hatası:',e)}
@@ -191,14 +191,20 @@ async function loadWebsiteData(){
       const phones=dData.telefon||dData.devices||[];
       if(Array.isArray(phones)){
         phones.forEach((d,i)=>{
-          if(i<80){// İlk 80 cihaz (Claude context limiti)
+          if(i<100){
+            const taksitler=[];
+            if(d.t3&&d.t3>0)taksitler.push('3 taksit: '+d.t3.toLocaleString('tr-TR')+' TL');
+            if(d.t12&&d.t12>0)taksitler.push('12 taksit: '+d.t12.toLocaleString('tr-TR')+' TL');
+            if(d.t24&&d.t24>0)taksitler.push('24 taksit: '+d.t24.toLocaleString('tr-TR')+' TL');
+            if(d.t36&&d.t36>0)taksitler.push('36 taksit: '+d.t36.toLocaleString('tr-TR')+' TL');
             cihazlar.push({
               id:'c'+(i+1),
               type:'cihaz',
               name:(d.m||'')+' '+(d.n||''),
               price:d.p?d.p.toLocaleString('tr-TR')+' TL':'Fiyat sorunuz',
-              desc:(d.n||'')+' - '+(d.m||''),
-              features:[d.n||''].filter(Boolean),
+              desc:(d.n||'')+' — Peşin: '+(d.p?d.p.toLocaleString('tr-TR')+' TL':''),
+              features:taksitler.length>0?taksitler:[(d.n||'')],
+              marka:d.m||'',
               raw:d
             });
           }
@@ -222,20 +228,28 @@ async function loadWebsiteData(){
 }
 
 function buildSystemPrompt(){
-  // Tarife özeti (en popüler 30 tarife)
-  const tOzet=tarifeler.slice(0,30).map(t=>t.name+': '+t.price+' ('+t.desc+')').join('\n');
-  // Cihaz özeti (en popüler 30 cihaz)  
-  const cOzet=cihazlar.slice(0,30).map(c=>c.name+': '+c.price).join('\n');
+  // Tarife özeti - kategoriye göre grupla
+  const tOzet=tarifeler.slice(0,40).map(t=>t.name+': '+t.price+' ('+t.desc+') [Kategori: '+t.category+']').join('\n');
+  // Cihaz özeti - marka ve taksitli
+  const cOzet=cihazlar.slice(0,40).map(c=>{
+    const taksit=c.raw?.t24?', 24 taksit: '+c.raw.t24.toLocaleString('tr-TR')+' TL/ay':'';
+    return c.name+': Peşin '+c.price+taksit;
+  }).join('\n');
+  
+  // Marka listesi
+  const markalar=[...new Set(cihazlar.map(c=>c.marka))].join(', ');
   
   // Kısa ürün listesi (product_id eşleştirmesi için)
   const pList=PRODUCTS.slice(0,60).map(p=>p.id+':'+p.name+' ('+p.price+')').join(', ');
 
-  return`Sen Konya Elfin İletişim mağazasının (Turkcell Yetkili Bayi) yapay zekâ asistanısın.
+  return`Sen Konya Elfin İletişim mağazasının (Turkcell Yetkili Bayi) yapay zekâ asistanısın. Adın Ayşe.
 
-TARİFELER:
+MAĞAZADA BULUNAN MARKALAR: ${markalar||'Apple, Samsung, Xiaomi, Oppo'}
+
+TARİFELER (${tarifeler.length} adet):
 ${tOzet||'Tarife bilgisi yüklenmedi'}
 
-CİHAZLAR:
+CİHAZLAR (${cihazlar.length} adet):
 ${cOzet||'Cihaz bilgisi yüklenmedi'}
 
 ÜRÜN ID LİSTESİ (product_id için kullan):
@@ -251,8 +265,9 @@ KURALLAR:
 - Sıcak samimi Türkçe
 - Türkçe karakterleri doğru kullan (ş, ç, ğ, ü, ö, ı, İ)
 - Ürün önerirken sağımda/solumda gördüğünüz de
-- Müşterinin ihtiyacına göre en uygun ürünü öner
-- Fiyat bilgisini ver
+- Müşterinin bütçesine ve ihtiyacına göre en uygun ürünü öner
+- Taksit seçeneklerini de belirt
+- Mağazada olmayan ürünler hakkında "maalesef bu ürün şu an stoklarımızda yok" de
 - Emoji KULLANMA
 - SADECE JSON formatında cevap ver başka hiçbir şey yazma`;
 }
@@ -693,7 +708,7 @@ async function callAPI(msgs){
 // ═══ ACTIONS ═══
 async function handleStart(){
   if(!S.apiKey){S.showSettings=true;render();toast("Lütfen önce Claude API key giriniz");return}
-  const g="Hoş geldiniz! Ben Elfin, dijital mağaza asistanınızım. Size nasıl yardımcı olabilirim?";
+  const g="Hoş geldiniz! Ben Ayşe, Elfin İletişim'in dijital asistanıyım. Size nasıl yardımcı olabilirim?";
   S.mode="greeting";S.msgs=[{role:"assistant",content:g}];S.product=null;S.pointDir=null;render();
   await speak(g);
   S.mode="listening";render();resetInact();
@@ -926,7 +941,7 @@ ${ic?'<button class="btn-s"onclick="handleReset()">Sifirla</button>':''}</div></
   if(!ic){
     const hasKey=!!S.apiKey;
     const hasEL=!!S.elKey;
-    h+=`<div class="idle-s"><div class="idle-t">Merhaba, ben <b>Elfin</b></div><div class="idle-sub">${dataLoaded?tarifeler.length+' tarife, '+cihazlar.length+' cihaz yüklendi':'Veriler yükleniyor...'}</div>
+    h+=`<div class="idle-s"><div class="idle-t">Merhaba, ben <b>Ayşe</b></div><div class="idle-sub">${dataLoaded?tarifeler.length+' tarife, '+cihazlar.length+' cihaz yüklendi':'Veriler yükleniyor...'}</div>
 ${!hasKey?`<button class="btn-s"style="padding:10px 24px;font-size:13px;margin-bottom:12px"onclick="S.showSettings=true;render()">Önce API Key Ayarlayın</button><br>`:''}
 ${hasKey&&!hasEL?`<button class="btn-s"style="padding:8px 16px;font-size:11px;margin-bottom:10px;border-color:var(--pr);color:var(--pr)"onclick="S.showSettings=true;render()">Doğal ses için ElevenLabs ekleyin</button><br>`:''}
 <button class="btn-go"onclick="handleStart()"${!hasKey?'style="opacity:.5"':''}>Manuel Başlat</button>
@@ -1203,7 +1218,7 @@ async function testVoice(){
       const oldKey=S.elKey;const oldVoice=S.elVoiceId;
       S.elKey=elKey;S.elVoiceId=voiceId;
       startMouth();
-      await speakElevenLabs(turkishPronounce("Merhaba! Ben Elfin. Bugün 20GB internet ve sınırsız SMS içeren YAPBOZ tarifemiz sadece 649 TL. iPhone 15 ise 64.999 TL'den başlıyor. Size nasıl yardımcı olabilirim?"));
+      await speakElevenLabs(turkishPronounce("Merhaba! Ben Ayşe. Bugün 20GB internet ve sınırsız SMS içeren YAPBOZ tarifemiz sadece 649 TL. iPhone 15 ise 64.999 TL'den başlıyor. Size nasıl yardımcı olabilirim?"));
       stopMouth();
       S.elKey=oldKey;S.elVoiceId=oldVoice;
       toast("Ses testi başarılı!");
@@ -1213,7 +1228,7 @@ async function testVoice(){
     }
   }else{
     startMouth();
-    await speakBrowser(turkishPronounce("Merhaba! Ben Elfin. 20GB internet 649 TL. Size nasıl yardımcı olabilirim?"));
+    await speakBrowser(turkishPronounce("Merhaba! Ben Ayşe. 20GB internet 649 TL. Size nasıl yardımcı olabilirim?"));
     stopMouth();
     toast("Tarayıcı sesi ile test edildi");
   }
