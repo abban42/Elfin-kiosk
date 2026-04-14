@@ -145,7 +145,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',-apple-system,s
 const DATA_URL='https://www.elfiniletisim.com';
 let PRODUCTS=[];
 let dataLoaded=false;
-let tarifeler=[], cihazlar=[];
+let tarifeler=[], cihazlar=[], evInternet=[];
 
 async function loadWebsiteData(){
   try{
@@ -153,7 +153,6 @@ async function loadWebsiteData(){
     const tRes=await fetch(DATA_URL+'/tariffs_custom.json');
     if(tRes.ok){
       const tData=await tRes.json();
-      // Structure: {"tarifeler":[{ad:"Kategori",tarifeler:[{ad,icerik,gb,dk,sms,fiyat},...]},...]}
       const categories=tData.tarifeler||tData;
       const catArray=Array.isArray(categories)?categories:[];
       let tId=0;
@@ -178,41 +177,61 @@ async function loadWebsiteData(){
           });
         }
       });
-      toast('Tarifeler yüklendi: '+tarifeler.length+' tarife');
+      toast('Tarifeler: '+tarifeler.length);
     }
   }catch(e){console.log('Tarife yükleme hatası:',e)}
 
   try{
-    // Cihazları yükle
+    // Cihazları yükle — tümü
     const dRes=await fetch(DATA_URL+'/devices.json');
     if(dRes.ok){
       const dData=await dRes.json();
-      // devices.json: {telefon:[{id,m,n,p,...}]}
-      const phones=dData.telefon||dData.devices||[];
+      const phones=dData.telefon||[];
       if(Array.isArray(phones)){
         phones.forEach((d,i)=>{
-          if(i<100){
-            const taksitler=[];
-            if(d.t3&&d.t3>0)taksitler.push('3 taksit: '+d.t3.toLocaleString('tr-TR')+' TL');
-            if(d.t12&&d.t12>0)taksitler.push('12 taksit: '+d.t12.toLocaleString('tr-TR')+' TL');
-            if(d.t24&&d.t24>0)taksitler.push('24 taksit: '+d.t24.toLocaleString('tr-TR')+' TL');
-            if(d.t36&&d.t36>0)taksitler.push('36 taksit: '+d.t36.toLocaleString('tr-TR')+' TL');
-            cihazlar.push({
-              id:'c'+(i+1),
-              type:'cihaz',
-              name:(d.m||'')+' '+(d.n||''),
-              price:d.p?d.p.toLocaleString('tr-TR')+' TL':'Fiyat sorunuz',
-              desc:(d.n||'')+' — Peşin: '+(d.p?d.p.toLocaleString('tr-TR')+' TL':''),
-              features:taksitler.length>0?taksitler:[(d.n||'')],
-              marka:d.m||'',
-              raw:d
-            });
-          }
+          const taksitler=[];
+          if(d.t12&&d.t12>0)taksitler.push('12 taksit: '+d.t12.toLocaleString('tr-TR')+' TL');
+          if(d.t24&&d.t24>0)taksitler.push('24 taksit: '+d.t24.toLocaleString('tr-TR')+' TL');
+          if(d.t36&&d.t36>0)taksitler.push('36 taksit: '+d.t36.toLocaleString('tr-TR')+' TL');
+          cihazlar.push({
+            id:'c'+(i+1),
+            type:'cihaz',
+            name:(d.m||'')+' '+(d.n||''),
+            price:d.p?d.p.toLocaleString('tr-TR')+' TL':'Fiyat sorunuz',
+            desc:(d.n||'')+' — Peşin: '+(d.p?d.p.toLocaleString('tr-TR')+' TL':''),
+            features:taksitler.length>0?taksitler:[(d.n||'')],
+            marka:d.m||'',
+            raw:d
+          });
         });
       }
-      toast('Cihazlar yüklendi: '+cihazlar.length+' cihaz');
+      toast('Cihazlar: '+cihazlar.length);
     }
   }catch(e){console.log('Cihaz yükleme hatası:',e)}
+
+  try{
+    // Ev interneti yükle
+    const eRes=await fetch(DATA_URL+'/evinternet_tariffs.json');
+    if(eRes.ok){
+      const eData=await eRes.json();
+      if(eData&&eData.kategoriler){
+        eData.kategoriler.forEach(kat=>{
+          (kat.kampanyalar||[]).forEach(k=>{
+            (k.paketler||[]).forEach(p=>{
+              evInternet.push({
+                kategori:kat.kategori,
+                kampanya:k.ad,
+                hiz:p.hiz,
+                fiyat:p.fiyat,
+                taahhut:k.taah||''
+              });
+            });
+          });
+        });
+      }
+      toast('Ev interneti: '+evInternet.length+' paket');
+    }
+  }catch(e){console.log('Ev interneti yükleme hatası:',e)}
 
   PRODUCTS=[...tarifeler,...cihazlar];
   dataLoaded=true;
@@ -228,29 +247,39 @@ async function loadWebsiteData(){
 }
 
 function buildSystemPrompt(){
-  // Tarife özeti - kategoriye göre grupla
-  const tOzet=tarifeler.slice(0,40).map(t=>t.name+': '+t.price+' ('+t.desc+') [Kategori: '+t.category+']').join('\n');
-  // Cihaz özeti - marka ve taksitli
-  const cOzet=cihazlar.slice(0,40).map(c=>{
-    const taksit=c.raw?.t24?', 24 taksit: '+c.raw.t24.toLocaleString('tr-TR')+' TL/ay':'';
-    return c.name+': Peşin '+c.price+taksit;
-  }).join('\n');
+  // Tarife özeti
+  const tOzet=tarifeler.slice(0,50).map(t=>t.name+': '+t.price+' ('+t.desc+') ['+t.category+']').join('\n');
   
-  // Marka listesi
-  const markalar=[...new Set(cihazlar.map(c=>c.marka))].join(', ');
+  // Cihaz özeti — markaya göre grupla, hepsi dahil
+  const markalar={};
+  cihazlar.forEach(c=>{
+    if(!markalar[c.marka])markalar[c.marka]=[];
+    markalar[c.marka].push(c);
+  });
+  const cOzet=Object.entries(markalar).map(([m,liste])=>
+    m+' ('+liste.length+' model): '+liste.map(c=>c.name.replace(m+' ','')+': '+c.price).join(', ')
+  ).join('\n');
   
-  // Kısa ürün listesi (product_id eşleştirmesi için)
-  const pList=PRODUCTS.slice(0,60).map(p=>p.id+':'+p.name+' ('+p.price+')').join(', ');
+  // Ev interneti özeti
+  const eiOzet=evInternet.length>0?evInternet.map(e=>
+    e.kategori+' — '+e.kampanya+': '+e.hiz+(e.fiyat?' → '+e.fiyat+' TL/ay':'')+(e.taahhut?' ('+e.taahhut+')':'')
+  ).join('\n'):'Ev interneti bilgisi yüklenmedi';
+  
+  // Ürün ID listesi
+  const pList=PRODUCTS.slice(0,80).map(p=>p.id+':'+p.name+' ('+p.price+')').join(', ');
 
-  return`Sen Konya Elfin İletişim mağazasının (Turkcell Yetkili Bayi) yapay zekâ asistanısın. Adın Ayşe.
+  return`Sen Konya Elfin İletişim mağazasının (Turkcell Yetkili Bayi) yapay zekâ asistanısın. Adın Ayşe. Aynı zamanda Superonline ev interneti yetkili bayisisin.
 
-MAĞAZADA BULUNAN MARKALAR: ${markalar||'Apple, Samsung, Xiaomi, Oppo'}
+MAĞAZADA BULUNAN MARKALAR: ${Object.keys(markalar).join(', ')||'Apple, Samsung, Xiaomi, Oppo'}
 
 TARİFELER (${tarifeler.length} adet):
 ${tOzet||'Tarife bilgisi yüklenmedi'}
 
 CİHAZLAR (${cihazlar.length} adet):
 ${cOzet||'Cihaz bilgisi yüklenmedi'}
+
+EV İNTERNETİ (${evInternet.length} paket):
+${eiOzet}
 
 ÜRÜN ID LİSTESİ (product_id için kullan):
 ${pList}
@@ -267,6 +296,7 @@ KURALLAR:
 - Ürün önerirken sağımda/solumda gördüğünüz de
 - Müşterinin bütçesine ve ihtiyacına göre en uygun ürünü öner
 - Taksit seçeneklerini de belirt
+- Ev interneti sorarlarsa Superonline paketlerini öner
 - Mağazada olmayan ürünler hakkında "maalesef bu ürün şu an stoklarımızda yok" de
 - Emoji KULLANMA
 - SADECE JSON formatında cevap ver başka hiçbir şey yazma`;
@@ -941,7 +971,7 @@ ${ic?'<button class="btn-s"onclick="handleReset()">Sifirla</button>':''}</div></
   if(!ic){
     const hasKey=!!S.apiKey;
     const hasEL=!!S.elKey;
-    h+=`<div class="idle-s"><div class="idle-t">Merhaba, ben <b>Ayşe</b></div><div class="idle-sub">${dataLoaded?tarifeler.length+' tarife, '+cihazlar.length+' cihaz yüklendi':'Veriler yükleniyor...'}</div>
+    h+=`<div class="idle-s"><div class="idle-t">Merhaba, ben <b>Ayşe</b></div><div class="idle-sub">${dataLoaded?tarifeler.length+' tarife, '+cihazlar.length+' cihaz, '+evInternet.length+' internet paketi':'Veriler yükleniyor...'}</div>
 ${!hasKey?`<button class="btn-s"style="padding:10px 24px;font-size:13px;margin-bottom:12px"onclick="S.showSettings=true;render()">Önce API Key Ayarlayın</button><br>`:''}
 ${hasKey&&!hasEL?`<button class="btn-s"style="padding:8px 16px;font-size:11px;margin-bottom:10px;border-color:var(--pr);color:var(--pr)"onclick="S.showSettings=true;render()">Doğal ses için ElevenLabs ekleyin</button><br>`:''}
 <button class="btn-go"onclick="handleStart()"${!hasKey?'style="opacity:.5"':''}>Manuel Başlat</button>
