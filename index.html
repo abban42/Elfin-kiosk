@@ -176,6 +176,36 @@ const KASKO_ROWS=[
   {a:"200.001+",akgP:10881,akgT:13590,apP:21001,apT:26244},
 ];
 
+// Cihaz peşin fiyatından kasko satırını bul
+function getKaskoForPrice(priceNum){
+  if(!priceNum||priceNum<=0)return null;
+  // Aralıklar sıralı olduğundan sondan başa kontrol et (">= alt sınır")
+  const ranges=[
+    [200001,Infinity],[150001,200000],[125001,150000],[100001,125000],[90001,100000],
+    [80001,90000],[70001,80000],[60001,70000],[50001,60000],[45001,50000],
+    [40001,45000],[35001,40000],[30001,35000],[27501,30000],[25001,27500],
+    [22501,25000],[20001,22500],[18501,20000],[17001,18500],[15501,17000],
+    [14001,15500],[12501,14000],[11001,12500],[9501,11000],[8001,9500],
+    [6501,8000],[5001,6500],[3501,5000],[2001,3500],[1001,2000],[0,1000]
+  ];
+  // KASKO_ROWS ters sırada (yüksekten düşüğe), ranges da aynı mantıkla
+  // KASKO_ROWS[0]="0-1.000" → ranges sonundaki [0,1000] ile eşleşmeli
+  // Eşleşme için: her aralığı KASKO_ROWS ile sırasıyla eşle
+  const kaskoOrdered=[...KASKO_ROWS].reverse(); // şimdi yüksekten düşüğe
+  for(let i=0;i<ranges.length;i++){
+    const [lo,hi]=ranges[i];
+    if(priceNum>=lo&&priceNum<=hi)return kaskoOrdered[i];
+  }
+  return KASKO_ROWS[0]; // fallback en düşük
+}
+
+// Fiyat string'inden ("54.999 TL") sayı çıkar
+function parsePriceToNum(priceStr){
+  if(!priceStr)return 0;
+  const s=String(priceStr).replace(/[^\d]/g,'');
+  return parseInt(s,10)||0;
+}
+
 async function loadWebsiteData(){
   try{
     // Tarifeleri yükle
@@ -300,7 +330,7 @@ function buildSystemPrompt(){
   // Tarife özeti
   const tOzet=tarifeler.slice(0,50).map(t=>t.name+': '+t.price+' ('+t.desc+') ['+t.category+']').join('\n');
   
-  // Cihaz özeti — markaya göre grupla, hepsi dahil
+  // Cihaz özeti — markaya göre grupla, her cihazın yanına HESAPLANMIŞ kasko ekle
   const markalar={};
   cihazlar.forEach(c=>{
     const key=(c.kategori||'telefon').toUpperCase()+' / '+c.marka;
@@ -308,16 +338,18 @@ function buildSystemPrompt(){
     markalar[key].push(c);
   });
   const cOzet=Object.entries(markalar).map(([m,liste])=>
-    m+' ('+liste.length+' model): '+liste.map(c=>c.name.replace(c.marka+' ','')+': '+c.price).join(', ')
-  ).join('\n');
+    m+' ('+liste.length+' model):\n'+liste.map(c=>{
+      const priceNum=parsePriceToNum(c.price);
+      const k=getKaskoForPrice(priceNum);
+      const kaskoTxt=k?` [KASKO: AKG ${k.akgP}TL, AKG+ ${k.apP}TL]`:'';
+      return '  - '+c.name.replace(c.marka+' ','')+': '+c.price+kaskoTxt;
+    }).join('\n')
+  ).join('\n\n');
   
   // Ev interneti özeti
   const eiOzet=evInternet.length>0?evInternet.map(e=>
     e.kategori+' — '+e.kampanya+': '+e.hiz+(e.fiyat?' → '+e.fiyat+' TL/ay':'')+(e.taahhut?' ('+e.taahhut+')':'')
   ).join('\n'):'Ev interneti bilgisi yüklenmedi';
-  
-  // Kasko özeti
-  const kaskoOzet=KASKO_ROWS.map(r=>r.a+' TL → AKG Peşin:'+r.akgP+' Taksit:'+r.akgT+' | AKG+ Peşin:'+r.apP+' Taksit:'+r.apT).join('\n');
   
   // Market/peşin fiyat özeti
   const marketOzet=marketPrices.length>0?marketPrices.map(it=>it.name+': '+(it.price?it.price.toLocaleString('tr-TR'):'-')+' TL').join('\n'):'Piyasa fiyatı bilgisi yüklenmedi';
@@ -335,11 +367,11 @@ ${tOzet||'Tarife bilgisi yüklenmedi'}
 CİHAZLAR (${cihazlar.length} adet — telefon, tablet, notebook, aksesuar):
 ${cOzet||'Cihaz bilgisi yüklenmedi'}
 
-CİHAZ KASKO (AKG / AKG+) FİYATLARI (yıllık, 5G indirimli):
-Kasko fiyatları cihaz peşin fiyat aralığına göre belirlenir.
-Fiyat Aralığı (TL) → AKG Peşin | AKG Taksitli | AKG+ Peşin | AKG+ Taksitli
-${kaskoOzet}
-NOT: Kasko fiyatı sorulduğunda ÖNCE cihazın peşin fiyatını sor, sonra bu tablodan eşleştir.
+CİHAZ KASKO FİYATLARI:
+Her cihazın yanında [KASKO: AKG XTL, AKG+ YTL] etiketi var. BU ETİKETTEKİ RAKAMLARI AYNEN KULLAN.
+Kasko yıllık, 5G indirimli fiyatlardır. AKG temel, AKG+ geniş kapsamdır.
+ASLA tablo yorumlama yapma, kendi hesaplamanla sayı üretme. Cihaz yanındaki etiketten oku.
+Kasko sorulup cihaz belli değilse ÖNCE "Hangi cihaz için?" diye sor.
 
 PEŞİN PİYASA FİYATLARI (${marketPrices.length} ürün):
 ${marketOzet}
