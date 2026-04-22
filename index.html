@@ -588,11 +588,10 @@ function stopCamera(){
 function turkishPronounce(text){
   if(!text)return text;
   let t=text;
-  
-  // Sayıları yazıya çevir
+
   const ones=['','bir','iki','üç','dört','beş','altı','yedi','sekiz','dokuz'];
   const tens=['','on','yirmi','otuz','kırk','elli','altmış','yetmiş','seksen','doksan'];
-  
+
   function numToTR(n){
     if(n===0)return 'sıfır';
     let s='';
@@ -603,51 +602,51 @@ function turkishPronounce(text){
     if(n>0)s+=ones[n];
     return s.trim();
   }
-  
-  // Fiyat formatları: 64.999 TL, 449 TL/ay
-  t=t.replace(/(\d{1,3}(?:\.\d{3})*)\s*TL\/ay/gi,(m,num)=>{
-    const n=parseInt(num.replace(/\./g,''));
-    return numToTR(n)+' lira aylık';
+
+  // ADIM 0: ÜRÜN KODLARINI KORU (A07, S24, M14) → placeholder ile sakla
+  const productCodes=[];
+  t=t.replace(/\b([A-Z])(\d{2,3})\b/g,(m)=>{
+    productCodes.push(m);
+    return `__PCODE${productCodes.length-1}__`;
   });
-  t=t.replace(/(\d{1,3}(?:\.\d{3})*)\s*TL/gi,(m,num)=>{
-    const n=parseInt(num.replace(/\./g,''));
-    return numToTR(n)+' lira';
-  });
-  
-  // Data miktarları: 20GB, 4 GB, 2TB
-  t=t.replace(/(\d+)\s*TB/gi,(m,n)=>numToTR(parseInt(n))+' terabayt');
-  t=t.replace(/(\d+)\s*GB/gi,(m,n)=>numToTR(parseInt(n))+' gigabayt');
-  t=t.replace(/(\d+)\s*MB/gi,(m,n)=>numToTR(parseInt(n))+' megabayt');
-  
-  // Hız: 100 Mbps, 50Mbps
+
+  // 1) ÖNCELİK: 4.5G, 5G, 4G (nokta içeren pattern önce)
+  t=t.replace(/\b4\.5G\b/g,'dört buçuk ci');
+  t=t.replace(/\b5G\b/g,'beş ci');
+  t=t.replace(/\b4G\b/g,'dört ci');
+
+  // 2) EKRAN BOYUTU (6.1", 6.7 inch) — nokta içerir, fiyattan önce
+  t=t.replace(/(\d)\.(\d+)\s*(?:["″''‘’]|inç|inch)/gi,(m,a,b)=>numToTR(parseInt(a))+' nokta '+numToTR(parseInt(b))+' inç');
+
+  // 3) HIZ (Mbps) — MB patterni bunu yakalamaması için önce
   t=t.replace(/(\d+)\s*Mbps/gi,(m,n)=>numToTR(parseInt(n))+' megabit');
-  
-  // Kamera: 48MP, 50 MP
-  t=t.replace(/(\d+)\s*MP/gi,(m,n)=>numToTR(parseInt(n))+' megapiksel');
-  
-  // Batarya: 5000mAh
+
+  // 4) FIYATLAR — hem noktalı (9.479) hem noktasız (48999) yakalar
+  t=t.replace(/(\d{1,3}(?:\.\d{3})+|\d{3,7})\s*TL\s*\/\s*ay/gi,(m,num)=>numToTR(parseInt(num.replace(/\./g,'')))+' lira aylık');
+  t=t.replace(/(\d{1,3}(?:\.\d{3})+|\d{3,7})\s*(?:TL|₺)/gi,(m,num)=>numToTR(parseInt(num.replace(/\./g,'')))+' lira');
+
+  // 5) DATA
+  t=t.replace(/(\d+)\s*TB\b/gi,(m,n)=>numToTR(parseInt(n))+' terabayt');
+  t=t.replace(/(\d+)\s*GB\b/gi,(m,n)=>numToTR(parseInt(n))+' gigabayt');
+  t=t.replace(/(\d+)\s*MB\b/gi,(m,n)=>numToTR(parseInt(n))+' megabayt');
+
+  // 6) TEKNİK
+  t=t.replace(/(\d+)\s*MP\b/gi,(m,n)=>numToTR(parseInt(n))+' megapiksel');
   t=t.replace(/(\d+)\s*mAh/gi,(m,n)=>numToTR(parseInt(n))+' miliamper saat');
-  
-  // Yüzde: %20, %50
   t=t.replace(/%\s*(\d+)/g,(m,n)=>'yüzde '+numToTR(parseInt(n)));
-  
-  // Ekran boyutları: 6.1", 6.1 inch
-  t=t.replace(/(\d+)\.(\d+)\s*["″''inch]*/gi,(m,a,b)=>a+' nokta '+b+' inç');
-  
-  // Kalan büyük sayılar (noktalı: 64.999)
-  t=t.replace(/\b(\d{1,3})\.(\d{3})(?:\.(\d{3}))?\b/g,(m,a,b,c)=>{
-    const n=parseInt(a+b+(c||''));
-    return numToTR(n);
-  });
-  
-  // Teknoloji kısaltmaları
+
+  // 7) NOKTALI BÜYÜK SAYILAR (64.999 → altmış dört bin dokuz yüz doksan dokuz)
+  t=t.replace(/\b(\d{1,3})\.(\d{3})(?:\.(\d{3}))?\b/g,(m,a,b,c)=>numToTR(parseInt(a+b+(c||''))));
+
+  // 8) AY / TAKSİT (düzeltildi — eski kod hiç çalışmıyordu)
+  t=t.replace(/(\d+)\s*ay\b/gi,(m,n)=>numToTR(parseInt(n))+' ay');
+  t=t.replace(/(\d+)\s*taksit\b/gi,(m,n)=>numToTR(parseInt(n))+' taksit');
+
+  // 9) KISALTMALAR
   t=t.replace(/\bSMS\b/gi,'es em es');
   t=t.replace(/\bMNT\b/gi,'em en te');
   t=t.replace(/\bNTC\b/gi,'numara taşıma');
   t=t.replace(/\bSIM\b/gi,'sim');
-  t=t.replace(/\b5G\b/g,'beş ci');
-  t=t.replace(/\b4G\b/g,'dört ci');
-  t=t.replace(/\b4\.5G\b/g,'dört buçuk ci');
   t=t.replace(/\bLTE\b/gi,'el ti i');
   t=t.replace(/\bWi-?Fi\b/gi,'vayfay');
   t=t.replace(/\bAMOLED\b/gi,'amöled');
@@ -662,29 +661,44 @@ function turkishPronounce(text){
   t=t.replace(/\bAI\b/g,'yapay zekâ');
   t=t.replace(/\bTV\+/gi,'tivi plus');
   t=t.replace(/\bGB\b/gi,'gigabayt');
-  
-  // Marka/ürün telaffuzları
+  t=t.replace(/\bTB\b/gi,'terabayt');
+
+  // 10) MARKA/ÜRÜN
   t=t.replace(/\bXiaomi\b/gi,'şiyaomi');
   t=t.replace(/\bHuawei\b/gi,'huavey');
   t=t.replace(/\bSamsung\b/gi,'samsung');
   t=t.replace(/\biPhone\b/gi,'ayfon');
+  t=t.replace(/\bGalaxy\b/gi,'galaksi');
   t=t.replace(/\bSnapdragon\b/gi,'snapdregın');
   t=t.replace(/\bBionic\b/gi,'bayonik');
   t=t.replace(/\bSuperonline\b/gi,'süperonlayn');
   t=t.replace(/\bTurkcell\b/gi,'türksel');
   t=t.replace(/\bFizy\b/gi,'fizi');
   t=t.replace(/\blifebox\b/gi,'layfboks');
-  
-  // Kısa birimler
+  t=t.replace(/\bPro\b/g,'pro');
+  t=t.replace(/\bMax\b/g,'maks');
+
+  // 11) KISA BIRIMLER
   t=t.replace(/\bdk\b/gi,'dakika');
-  t=t.replace(/\bay\b/g,'ay');
-  
-  // Kalan tekli sayıları çevir (3 haneli ve üstü)
+
+  // 12) KALAN 3+ HANELİ SAYILAR
   t=t.replace(/\b(\d{3,})\b/g,(m,n)=>numToTR(parseInt(n)));
-  
-  // Çoklu boşlukları temizle
+
+  // 13) KALAN 1-2 HANELİ SAYILAR (word boundary — ürün kodları zaten korumada)
+  t=t.replace(/\b(\d{1,2})\b/g,(m,n)=>numToTR(parseInt(n)));
+
+  // 14) ÜRÜN KODLARINI GERİ YERLEŞTİR — "A07" → "A sıfır yedi"
+  t=t.replace(/__PCODE(\d+)__/g,(m,idx)=>{
+    const code=productCodes[parseInt(idx)];
+    const letter=code[0];
+    const digits=code.slice(1);
+    const words=digits.split('').map(d=>parseInt(d)===0?'sıfır':ones[parseInt(d)]).join(' ');
+    return letter+' '+words;
+  });
+
+  // 15) TEMIZLIK
   t=t.replace(/\s+/g,' ').trim();
-  
+
   return t;
 }
 
@@ -711,22 +725,22 @@ function trVoice(){
   return all[0]||null;
 }
 
-// ElevenLabs TTS
+// ElevenLabs TTS - Streaming (ilk chunk gelir gelmez çalar, latency dramatik düşer)
 async function speakElevenLabs(text){
   const voiceId=S.elVoiceId||'onwK4e9ZLuTAKqWW03F9'; // Daniel - calm male
-  // optimize_streaming_latency=3: max hız optimizasyonu, output_format düşük bitrate = daha hızlı indirme
-  const apiUrl=`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?optimize_streaming_latency=3&output_format=mp3_22050_32`;
+  // optimize_streaming_latency=4: en agresif hız, output_format düşük bitrate
+  const apiUrl=`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?optimize_streaming_latency=4&output_format=mp3_22050_32`;
   const res=await fetch(apiUrl,{
     method:'POST',
-    headers:{'Content-Type':'application/json','xi-api-key':S.elKey},
+    headers:{'Content-Type':'application/json','xi-api-key':S.elKey,'Accept':'audio/mpeg'},
     body:JSON.stringify({
       text:text,
-      model_id:'eleven_multilingual_v2',
+      model_id:'eleven_turbo_v2_5',  // Turbo v2.5: 2x hızlı, Türkçe destekli
       voice_settings:{
-        stability: parseFloat(S.elStability||0.82),
+        stability: parseFloat(S.elStability||0.75),
         similarity_boost: parseFloat(S.elSimilarity||0.80),
-        style: parseFloat(S.elStyle||0.08),
-        speed: parseFloat(S.elSpeed||1.1),
+        style: parseFloat(S.elStyle||0.10),
+        speed: parseFloat(S.elSpeed||1.0),
         use_speaker_boost:true
       }
     })
@@ -735,13 +749,58 @@ async function speakElevenLabs(text){
     let detail='';try{const e=await res.json();detail=e.detail?.message||e.detail||''}catch(x){}
     throw new Error('ElevenLabs '+res.status+(detail?': '+detail:''));
   }
-  const blob=await res.blob();
-  const url=URL.createObjectURL(blob);
-  return new Promise((resolve)=>{
-    const audio=new Audio(url);
-    audio.onended=()=>{URL.revokeObjectURL(url);resolve()};
-    audio.onerror=()=>{URL.revokeObjectURL(url);resolve()};
-    audio.play().catch(()=>resolve());
+  // MediaSource streaming: chunk'lar geldikçe oynatır
+  // Tarayıcı desteği yoksa fallback: blob olarak oynat
+  if(!('MediaSource' in window)||!MediaSource.isTypeSupported('audio/mpeg')){
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    return new Promise((resolve)=>{
+      const audio=new Audio(url);
+      audio.onended=()=>{URL.revokeObjectURL(url);resolve()};
+      audio.onerror=()=>{URL.revokeObjectURL(url);resolve()};
+      audio.play().catch(()=>resolve());
+    });
+  }
+  return new Promise(async(resolve)=>{
+    const mediaSource=new MediaSource();
+    const audio=new Audio();
+    audio.src=URL.createObjectURL(mediaSource);
+    let done=false;
+    const cleanup=()=>{if(!done){done=true;try{URL.revokeObjectURL(audio.src)}catch(e){}resolve()}};
+    audio.onended=cleanup;
+    audio.onerror=cleanup;
+    mediaSource.addEventListener('sourceopen',async()=>{
+      const sb=mediaSource.addSourceBuffer('audio/mpeg');
+      const reader=res.body.getReader();
+      const queue=[];
+      let playing=false;
+      const appendNext=()=>{
+        if(queue.length===0||sb.updating)return;
+        try{sb.appendBuffer(queue.shift())}catch(e){}
+      };
+      sb.addEventListener('updateend',()=>{
+        appendNext();
+        if(!playing&&audio.readyState>=2){
+          playing=true;
+          audio.play().catch(cleanup);
+        }
+      });
+      try{
+        while(true){
+          const {done:d,value}=await reader.read();
+          if(d)break;
+          queue.push(value);
+          if(!sb.updating)appendNext();
+        }
+        // Tüm chunk'lar geldi, stream'i kapat
+        const checkEnd=setInterval(()=>{
+          if(queue.length===0&&!sb.updating){
+            clearInterval(checkEnd);
+            try{mediaSource.endOfStream()}catch(e){}
+          }
+        },50);
+      }catch(e){cleanup()}
+    });
   });
 }
 
