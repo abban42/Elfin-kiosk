@@ -145,7 +145,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',-apple-system,s
 <div id="app"></div>
 <div id="modal-root"></div>
 <div id="toast-root"></div>
-<video id="cam" autoplay playsinline muted style="position:fixed;top:52px;left:8px;width:120px;height:90px;border-radius:12px;border:2px solid var(--bd);object-fit:cover;transform:scaleX(-1);z-index:50;display:none;opacity:0.9"></video>
+<video id="cam" autoplay playsinline muted style="position:fixed;top:12px;right:12px;width:110px;height:82px;border-radius:10px;border:2px solid var(--bd);object-fit:cover;transform:scaleX(-1);z-index:50;display:none;opacity:0.85;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></video>
 <canvas id="cam-canvas" style="position:fixed;top:52px;left:8px;width:120px;height:90px;border-radius:12px;z-index:51;display:none;pointer-events:none;transform:scaleX(-1)"></canvas>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
 
@@ -456,8 +456,8 @@ async function startCamera(){
     if(vid){
       vid.srcObject=stream;
       await vid.play();
-      // Kamera ekran dışında — görünmez ama face detection çalışmaya devam eder
-      vid.style.cssText='position:fixed;top:-9999px;left:-9999px;width:120px;height:90px;';
+      // Kamera sağ üst köşede küçük şekilde görünür (kullanıcı feedback için)
+      vid.style.display='block';
       document.getElementById('cam-canvas').style.display='none';
       camActive=true;camStartTime=Date.now();render();startFaceLoop();
     }
@@ -705,16 +705,34 @@ function turkishPronounce(text){
 // ═══ TTS ═══
 let voices=[];
 let audioCtx=null;
+let audioUnlocked=false;  // ElevenLabs Audio element'i için unlock bayrağı
+let silentAudio=null;      // İlk etkileşimde Audio API'sini uyandıran boş ses
 function loadV(){voices=speechSynthesis.getVoices()}
-if('speechSynthesis' in window){loadV();speechSynthesis.onvoiceschanged=loadV;
-  const unlockAudio=()=>{
-    const u=new SpeechSynthesisUtterance('');u.volume=0;speechSynthesis.speak(u);
+if('speechSynthesis' in window){loadV();speechSynthesis.onvoiceschanged=loadV;}
+
+// TÜM ses API'lerini (SpeechSynthesis + AudioContext + <audio>) unlock eder
+const unlockAudio=()=>{
+  if(audioUnlocked)return;
+  audioUnlocked=true;
+  // 1) SpeechSynthesis
+  try{const u=new SpeechSynthesisUtterance('');u.volume=0;speechSynthesis.speak(u);}catch(e){}
+  // 2) AudioContext
+  try{
     if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
     if(audioCtx.state==='suspended')audioCtx.resume();
-  };
-  document.addEventListener('touchstart',unlockAudio,{once:true});
-  document.addEventListener('click',unlockAudio,{once:true});
-}
+  }catch(e){}
+  // 3) HTML Audio element (ElevenLabs için!) — sessiz WAV data URI ile Audio API'sini uyandır
+  try{
+    silentAudio=new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+    silentAudio.volume=0;
+    silentAudio.play().catch(()=>{});
+  }catch(e){}
+  console.log('[Kiosk] Audio unlocked');
+};
+document.addEventListener('touchstart',unlockAudio,{once:false,passive:true});
+document.addEventListener('touchend',unlockAudio,{once:false,passive:true});
+document.addEventListener('click',unlockAudio,{once:false});
+document.addEventListener('keydown',unlockAudio,{once:false});
 
 function trVoice(){
   const all=voices.filter(v=>v.lang.startsWith('tr'));
@@ -820,6 +838,11 @@ function speakBrowser(text){
 // Main speak function - preprocesses text, tries ElevenLabs first, falls back to browser
 async function speak(text){
   if(!text)return;
+  // İlk ses isteğinde audio unlock'ı zorla (henüz dokunmamışsa sessiz geçme)
+  if(!audioUnlocked){
+    console.warn('[Kiosk] İlk sesi çalmadan önce unlock gerekli. Kullanıcıdan dokunma bekleniyor.');
+    unlockAudio();  // Programlı da dene (çalışmayabilir ama denemeye değer)
+  }
   const processed=turkishPronounce(text);
   S.mode="speaking";startMouth();render();
   
